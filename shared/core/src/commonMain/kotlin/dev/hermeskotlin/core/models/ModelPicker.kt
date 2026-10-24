@@ -22,33 +22,37 @@ data class PickerModel(val name: String, val variants: List<ModelOption>) {
             ?: variants.first()
 }
 
-/** Which models the picker lists: the ones you use, every model, or one provider's. */
+/** Which models the picker lists: the ones you use, every model, one provider's, or the free ones. */
 sealed interface PickerScope {
     data object Yours : PickerScope
     data object All : PickerScope
     data class Provider(val slug: String) : PickerScope
+    data object Free : PickerScope
 }
 
 /**
- * The scope the picker shows: the [chosen] one while it still has something to show, else yours when there are
- * any ([hasYours]), else all. A search looks through every model, so it is never shown as a search of yours.
+ * The scope the picker shows: the [chosen] one while it still has something to show, else all of them, grouped
+ * by provider. A search looks through every model, so it is never shown as a search of yours.
  */
 fun pickerScope(chosen: PickerScope?, hasYours: Boolean, searching: Boolean): PickerScope {
-    val scope = chosen?.takeIf { it != PickerScope.Yours || hasYours } ?: if (hasYours) PickerScope.Yours else PickerScope.All
+    val scope = chosen?.takeIf { it != PickerScope.Yours || hasYours } ?: PickerScope.All
     return if (searching && scope == PickerScope.Yours) PickerScope.All else scope
 }
 
-/** A run of picker rows under an optional heading. */
-data class PickerSection(val title: String?, val models: List<PickerModel>)
+/** A run of picker rows under an optional heading; [provider] when they are all that provider's, named in the heading. */
+data class PickerSection(val title: String?, val models: List<PickerModel>, val provider: String? = null)
+
+/** The heading of the free models' section. */
+const val FREE_SECTION = "Free to use"
 
 /**
  * Every model of the catalog (or of [provider] only) as picker rows, the same model from different providers
  * merged into one row. Two models of one provider stay apart even when their names match.
  */
-fun ModelCatalog.pickerModels(provider: String? = null): List<PickerModel> {
+fun ModelCatalog.pickerModels(provider: String? = null, filter: (ModelOption) -> Boolean = { true }): List<PickerModel> {
     val rows = LinkedHashMap<String, MutableList<MutableList<ModelOption>>>()
     providers.filter { provider == null || it.slug == provider }.forEach { p ->
-        p.models.forEach { model ->
+        p.models.filter(filter).forEach { model ->
             val sameModel = rows.getOrPut(sameModelKey(model.id)) { mutableListOf() }
             val row = sameModel.firstOrNull { row -> row.none { it.provider == model.provider } }
             if (row != null) row += model else sameModel += mutableListOf(model)
@@ -65,7 +69,10 @@ fun ModelCatalog.offersAny(keys: Collection<String>): Boolean =
  * What the model picker shows for [query] in [scope].
  *
  * Without a query, [PickerScope.Yours] lists the [starred] models (in the order they were starred), then the
- * [current] model (a [starKey]) and the [recent] ones; the other scopes list every model they cover.
+ * [current] model (a [starKey]) and the [recent] ones. [PickerScope.All] lists each [ModelProvider.chosen]
+ * provider's paid models under its name, then every free model under [FREE_SECTION], the same model from
+ * several providers as one row. [PickerScope.Free] is that last section alone; a provider's scope lists all of
+ * its models.
  *
  * A query ranks models by how well their name or id matches: a name that starts with it first, then one with a
  * word that does, then one that has it anywhere. A query with digits also matches letters in order, so "op55"
@@ -90,7 +97,11 @@ fun ModelCatalog.pickerSections(
             val recentRows = (listOfNotNull(current) + recent).mapNotNull(::row).distinct() - starredRows.toSet()
             listOf(PickerSection("Starred", starredRows), PickerSection("Recent", recentRows.take(RECENT_SHOWN)))
         }
-        else -> listOf(PickerSection(null, models))
+        scope == PickerScope.All -> providers.filter { it.chosen }.map { p ->
+            PickerSection(displayProviderName(p.slug, p.name), pickerModels(p.slug) { !it.isFree }, provider = p.slug)
+        } + PickerSection(FREE_SECTION, pickerModels { it.isFree })
+        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels { it.isFree }))
+        else -> listOf(PickerSection(null, models, provider = slug))
     }
     return sections.filter { it.models.isNotEmpty() }
 }

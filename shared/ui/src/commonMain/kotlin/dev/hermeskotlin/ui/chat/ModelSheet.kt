@@ -56,6 +56,7 @@ import dev.hermeskotlin.core.models.PickerScope
 import dev.hermeskotlin.core.models.ReasoningEffort
 import dev.hermeskotlin.core.models.displayModelName
 import dev.hermeskotlin.core.models.displayProviderName
+import dev.hermeskotlin.core.models.isFree
 import dev.hermeskotlin.core.models.offersAny
 import dev.hermeskotlin.core.models.pickerModels
 import dev.hermeskotlin.core.models.pickerScope
@@ -283,8 +284,9 @@ internal fun ModelSheet(
 }
 
 /**
- * The models to pick from. It opens on yours (starred and recent) once there are any, with chips to see all of
- * them or one provider's; a search looks through every model in the chosen provider, or all of them.
+ * The models to pick from: those of the providers you set up yourself, each under its name, then the free ones
+ * from anywhere (see [ModelCatalog.usable]). Chips narrow it to yours (starred and recent), one provider's or
+ * the free ones; a search looks through every model in the chosen provider, or all of them.
  */
 @Composable
 private fun ModelList(
@@ -300,17 +302,20 @@ private fun ModelList(
     val settings = LocalAppSettings.current
     val starred = settings.starredModels
     val recent = settings.recentModels
-    val hasYours = remember(catalog, starred, recent) { catalog.offersAny(starred + recent) }
+    val usable = remember(catalog) { catalog.usable() }
+    val hasYours = remember(usable, starred, recent) { usable.offersAny(starred + recent) }
     val needle = query.text.toString().trim()
     val scope = pickerScope(chosen, hasYours, searching = needle.isNotEmpty())
     val current = selection.option?.starKey
-    val sections = remember(catalog, needle, scope, starred, recent, current) {
-        catalog.pickerSections(needle, scope, starred, recent, current)
+    val sections = remember(usable, needle, scope, starred, recent, current) {
+        usable.pickerSections(needle, scope, starred, recent, current)
     }
     val providerNames = remember(catalog) { catalog.providers.associate { it.slug to displayProviderName(it.slug, it.name) } }
-    val allCount = remember(catalog) { catalog.pickerModels().size }
+    val allCount = remember(usable) { usable.pickerModels().size }
+    val hasFree = remember(usable) { usable.providers.any { p -> p.models.any { it.isFree } } }
+    val chosenProviders = remember(usable) { usable.providers.filter { it.chosen } }
 
-    if (catalog.providers.sumOf { it.models.size } > SEARCH_THRESHOLD) {
+    if (usable.providers.sumOf { it.models.size } > SEARCH_THRESHOLD) {
         TextField(
             state = query,
             placeholder = "Search models or providers",
@@ -320,9 +325,10 @@ private fun ModelList(
         )
     }
     val scopes = buildList {
-        if (hasYours) add(PickerScope.Yours to "Your models")
         add(PickerScope.All to "All")
-        if (catalog.providers.size > 1) catalog.providers.forEach { add(PickerScope.Provider(it.slug) to providerNames.getValue(it.slug)) }
+        if (hasYours) add(PickerScope.Yours to "Your models")
+        if (chosenProviders.size > 1 || hasFree) chosenProviders.forEach { add(PickerScope.Provider(it.slug) to providerNames.getValue(it.slug)) }
+        if (hasFree && chosenProviders.isNotEmpty()) add(PickerScope.Free to "Free")
     }
     if (scopes.size > 1) {
         LazyRow(
@@ -357,8 +363,8 @@ private fun ModelList(
                     row = row,
                     selection = selection,
                     starred = row.isStarred(starred),
-                    // Which provider a model comes from matters once there's more than one, unless one is chosen.
-                    providerNames = providerNames.takeIf { catalog.providers.size > 1 && scope !is PickerScope.Provider },
+                    // Which provider a model comes from matters once there's more than one, unless its section says.
+                    providerNames = providerNames.takeIf { usable.providers.size > 1 && section.provider == null },
                     // Two rows with the same name need their ids to tell them apart.
                     showId = row.name in repeatedNames,
                     onClick = { onPick(pick) },

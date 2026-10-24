@@ -153,13 +153,57 @@ class ModelPickerTest {
 
     @Test
     fun theScopeFallsBackAndASearchIsNeverOfYours() {
-        assertEquals(PickerScope.Yours, pickerScope(null, hasYours = true, searching = false))
+        assertEquals(PickerScope.All, pickerScope(null, hasYours = true, searching = false))
+        assertEquals(PickerScope.Yours, pickerScope(PickerScope.Yours, hasYours = true, searching = false))
         assertEquals(PickerScope.All, pickerScope(null, hasYours = false, searching = false))
         // Your models chosen, then the last star removed: nothing of yours left to show.
         assertEquals(PickerScope.All, pickerScope(PickerScope.Yours, hasYours = false, searching = false))
         assertEquals(PickerScope.All, pickerScope(PickerScope.Yours, hasYours = true, searching = true))
         assertEquals(PickerScope.Provider("nous"), pickerScope(PickerScope.Provider("nous"), hasYours = true, searching = true))
         assertEquals(PickerScope.All, pickerScope(PickerScope.All, hasYours = true, searching = false))
+    }
+
+    private val mixed = ModelCatalog(
+        providers = listOf(
+            ModelProvider("openai-codex", "OpenAI Codex", listOf(ModelOption("gpt-6-sol", "openai-codex"), ModelOption("gpt-6-mini", "openai-codex"))),
+            ModelProvider("alibaba", "Qwen Cloud", listOf(ModelOption("qwen3.6-plus", "alibaba"), ModelOption("qwen3-coder-free", "alibaba", price = "Free"))),
+            // Found by the gateway, not set up: only its free models are offered.
+            ModelProvider(
+                "openrouter", "OpenRouter",
+                listOf(ModelOption("z-ai/glm-5.2", "openrouter", price = "$1 / $2"), ModelOption("deepseek/deepseek-v4:free", "openrouter")),
+                chosen = false,
+            ),
+            ModelProvider("nous", "Nous Portal", listOf(ModelOption("anthropic/claude-opus-5.5", "nous")), chosen = false),
+        ),
+    ).usable()
+
+    @Test
+    fun onlyTheFreeModelsOfProvidersYouDidntSetUpAreOffered() {
+        assertEquals(listOf("openai-codex", "alibaba", "openrouter"), mixed.providers.map { it.slug })
+        assertEquals(listOf("deepseek/deepseek-v4:free"), mixed.providers.last().models.map { it.id })
+    }
+
+    @Test
+    fun allListsEachProviderYouSetUpThenTheFreeOnes() {
+        val sections = mixed.pickerSections("", PickerScope.All)
+        assertEquals(listOf("ChatGPT subscription", "Qwen Cloud", FREE_SECTION), sections.map { it.title })
+        assertEquals(listOf("openai-codex", "alibaba", null), sections.map { it.provider })
+        assertEquals(listOf("GPT-6-sol", "GPT-6-mini"), sections[0].models.map { it.name })
+        assertEquals(listOf("qwen3.6-plus"), sections[1].models.flatMap { r -> r.variants.map { it.id } })
+        assertEquals(listOf("qwen3-coder-free", "deepseek/deepseek-v4:free"), sections[2].models.flatMap { r -> r.variants.map { it.id } })
+        assertEquals(sections[2].models, mixed.pickerSections("", PickerScope.Free).single().models)
+    }
+
+    @Test
+    fun aSearchFindsOnlyWhatIsOffered() {
+        assertTrue(mixed.pickerSections("glm", PickerScope.All).isEmpty())
+        assertTrue(mixed.pickerSections("opus", PickerScope.All).isEmpty())
+        assertEquals(listOf("DeepSeek V4:free"), mixed.pickerSections("deepseek", PickerScope.All).single().models.map { it.name })
+    }
+
+    @Test
+    fun withoutFreeModelsThereIsNoFreeSection() {
+        assertEquals(listOf("Nous Portal", "OpenRouter", "Anthropic", "ChatGPT subscription"), catalog.pickerSections("", PickerScope.All).map { it.title })
     }
 
     private fun provider(slug: String, name: String, vararg ids: String) = ModelProvider(slug, name, ids.map { ModelOption(id = it, provider = slug) })

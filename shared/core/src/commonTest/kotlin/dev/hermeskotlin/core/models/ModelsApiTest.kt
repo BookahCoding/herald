@@ -41,6 +41,28 @@ class ModelsApiTest {
     }
 
     @Test
+    fun theProvidersYouSetUpAreMarkedChosen() = runTest {
+        val gateway = FakeGateway(backgroundScope)
+        val all = """{"providers":[{"slug":"openai-codex","name":"OpenAI Codex","models":["gpt-6"]},
+            {"slug":"openrouter","name":"OpenRouter","models":["a/m1"]}]}"""
+        gateway.answer = { call ->
+            if (call.param("explicit_only") == "true") """{"providers":[{"slug":"openai-codex","models":["gpt-6"]}]}""" else all
+        }
+        val api = ModelsApi(gateway.start())
+        val catalog = api.options(profile = "work")
+        assertEquals(listOf(true, false), catalog.providers.map { it.chosen })
+        assertEquals(listOf("work", "work"), gateway.sent("model.options").map { it.param("profile") })
+    }
+
+    @Test
+    fun aGatewayWithoutExplicitOnlyMarksEveryProviderChosen() = runTest {
+        val gateway = FakeGateway(backgroundScope)
+        gateway.answer = { call -> if (call.param("explicit_only") == "true") "error:4002" else bare }
+        val catalog = ModelsApi(gateway.start()).options()
+        assertEquals(listOf(true), catalog.providers.map { it.chosen })
+    }
+
+    @Test
     fun aCatalogWithPricesAsksNothing() = runTest {
         val gateway = FakeGateway(backgroundScope)
         gateway.answer = { priced }

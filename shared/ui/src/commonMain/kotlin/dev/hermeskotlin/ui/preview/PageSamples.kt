@@ -431,7 +431,10 @@ internal object PageSamples {
         ),
     )
 
-    /** Three providers, enough models that the picker offers search; OpenRouter also offers two Anthropic models. */
+    /**
+     * Three providers you set up, enough models that the picker offers search; OpenRouter also offers two Anthropic
+     * models and a free one. Nous Portal was found by the gateway, not set up, so only its free model is offered.
+     */
     val modelCatalog = ModelCatalog(
         providers = listOf(
             ModelProvider(
@@ -448,11 +451,17 @@ internal object PageSamples {
                     "z-ai/glm-5.3-flash" to "$0.06 / $0.40", "deepseek/deepseek-v4" to "$0.27 / $1.10",
                     "moonshotai/kimi-k2.6" to "$0.60 / $2.50", "xiaomi/mimo-v2.6-pro" to "$0.40 / $1.60",
                     "qwen/qwen3-235b-a22b" to "$0.13 / $0.60", "google/gemini-3.8-flash" to "$0.30 / $2.50",
+                    "openai/gpt-oss-120b:free" to "Free",
                 ).map { (id, price) -> ModelOption(id, "openrouter", reasoning = true, price = price) },
             ),
             ModelProvider(
                 "openai-codex", "OpenAI Codex",
                 listOf("gpt-6.1-sol", "gpt-6.1-mini", "gpt-6-codex", "gpt-6-nano").map { ModelOption(it, "openai-codex", reasoning = true) },
+            ),
+            ModelProvider(
+                "nous", "Nous Portal",
+                listOf(ModelOption("nousresearch/hermes-5-70b", "nous", price = "Free"), ModelOption("anthropic/claude-opus-5.5", "nous", price = "$5 / $25")),
+                chosen = false,
             ),
         ),
         currentModel = "claude-opus-5-5",

@@ -9,6 +9,8 @@ import dev.hermeskotlin.core.rpc.JsonRpcClient
 import dev.hermeskotlin.core.rpc.RpcException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -40,7 +42,16 @@ data class ModelProvider(
     /** The provider's own short list, shown first when it has many models. */
     val featured: List<String> = emptyList(),
     val warning: String? = null,
+    /**
+     * You set this provider up yourself (the gateway's `explicit_only` list): a subscription you signed in to or
+     * a key you pasted. Others are credentials the gateway found lying around (a CLI login, a free tier); the
+     * picker offers only their free models.
+     */
+    val chosen: Boolean = true,
 )
+
+/** Costs nothing to run: the gateway prices it as free, or it is one of OpenRouter's `:free` variants. */
+val ModelOption.isFree: Boolean get() = price == "Free" || id.endsWith(":free", ignoreCase = true)
 
 /** `model.options`: the configured providers and what the session (or the profile default) runs now. */
 data class ModelCatalog(
@@ -60,6 +71,20 @@ data class ModelCatalog(
      */
     val missingPrices: Boolean
         get() = providers.any { p -> p.slug.lowercase() in PRICED_PROVIDERS && p.models.none { it.price != null } }
+
+    /**
+     * What the picker offers: every model of a [ModelProvider.chosen] provider, and only the free ones of the
+     * rest. A provider left with nothing is dropped.
+     */
+    fun usable(): ModelCatalog = copy(
+        providers = providers.mapNotNull { p ->
+            if (p.chosen) p else p.copy(models = p.models.filter { it.isFree }).takeIf { it.models.isNotEmpty() }
+        },
+    )
+
+    /** This catalog with only the providers in [slugs] marked [ModelProvider.chosen]; null marks them all. */
+    fun withChosen(slugs: Set<String>?): ModelCatalog =
+        copy(providers = providers.map { it.copy(chosen = slugs == null || it.slug in slugs) })
 
     /** Each priced model's price, by [starKey]. */
     fun prices(): Map<String, String> =
@@ -154,12 +179,25 @@ class ModelsApi(private val connection: GatewayConnection) {
     /** What those refreshes brought, by profile, by [starKey]. */
     private val prices = mutableMapOf<String?, Map<String, String>>()
 
-    /** The catalog for [runtimeSessionId] (its current model marked) or, without one, the profile default. */
-    suspend fun options(runtimeSessionId: String? = null, profile: String? = null): ModelCatalog {
+    /**
+     * The catalog for [runtimeSessionId] (its current model marked) or, without one, the profile default, with the
+     * providers you set up yourself marked [ModelProvider.chosen]. That comes from a second `model.options` with
+     * `explicit_only`, as Hermes Desktop's picker asks; a gateway too old to take it gets every provider marked.
+     */
+    suspend fun options(runtimeSessionId: String? = null, profile: String? = null): ModelCatalog = coroutineScope {
         val client = client()
-        val catalog = request(client, runtimeSessionId, profile, refresh = false)
+        val explicit = async {
+            try {
+                request(client, runtimeSessionId, profile, refresh = false, explicitOnly = true).providers.map { it.slug }.toSet()
+                    // None at all reads as a gateway that can't tell: hiding everything would leave nothing to pick.
+                    .takeIf { it.isNotEmpty() }
+            } catch (e: RpcException) {
+                null
+            }
+        }
+        val catalog = request(client, runtimeSessionId, profile, refresh = false).withChosen(explicit.await())
         val known = lock.withLock { if (pricedOver === client) prices[profile] else null }
-        return known?.let(catalog::withPrices) ?: catalog
+        known?.let(catalog::withPrices) ?: catalog
     }
 
     /**
@@ -196,13 +234,20 @@ class ModelsApi(private val connection: GatewayConnection) {
     private fun client() = (connection.state.value as? ConnectionState.Connected)?.client
         ?: throw RpcException(0, "Not connected to the gateway.")
 
-    private suspend fun request(client: JsonRpcClient, runtimeSessionId: String?, profile: String?, refresh: Boolean): ModelCatalog {
+    private suspend fun request(
+        client: JsonRpcClient,
+        runtimeSessionId: String?,
+        profile: String?,
+        refresh: Boolean,
+        explicitOnly: Boolean = false,
+    ): ModelCatalog {
         val result = client.request(
             "model.options",
             buildJsonObject {
                 runtimeSessionId?.let { put("session_id", it) }
                 profile?.let { put("profile", it) }
                 if (refresh) put("refresh", true)
+                if (explicitOnly) put("explicit_only", true)
             },
         )
         return ModelCatalog.parse(result as? JsonObject)
