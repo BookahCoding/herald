@@ -59,22 +59,25 @@ private fun buildHermesTheme(palette: AccentPalette) = buildThemeV2 {
     // Selection keeps a stronger tint than accent soft, which is too faint behind selected text.
     colorScheme(ColorScheme.Light) {
         properties[colors] = lightColors(palette.light)
-        defaultContentColor = Palette.LightText
-        defaultIndication = rememberColoredIndication(Palette.LightText)
+        val ink = (palette.light.neutrals ?: Neutrals.Light).text
+        defaultContentColor = ink
+        defaultIndication = rememberColoredIndication(ink)
         defaultTextSelectionColors = TextSelectionColors(palette.light.accent, palette.light.accent.copy(alpha = 0.25f))
     }
 
     colorScheme(ColorScheme.Dark) {
         properties[colors] = darkColors(palette.dark)
-        defaultContentColor = Palette.Text
-        defaultIndication = rememberColoredIndication(Palette.Text)
+        val ink = (palette.dark.neutrals ?: Neutrals.Dark).text
+        defaultContentColor = ink
+        defaultIndication = rememberColoredIndication(ink)
         defaultTextSelectionColors = TextSelectionColors(palette.dark.text, palette.dark.text.copy(alpha = 0.35f))
     }
 
     colorScheme(PureBlack) {
         properties[colors] = pureBlackColors(palette.black)
-        defaultContentColor = Palette.Text
-        defaultIndication = rememberColoredIndication(Palette.Text)
+        val ink = (palette.black.neutrals ?: Neutrals.Black).text
+        defaultContentColor = ink
+        defaultIndication = rememberColoredIndication(ink)
         defaultTextSelectionColors = TextSelectionColors(palette.black.text, palette.black.text.copy(alpha = 0.35f))
     }
 
