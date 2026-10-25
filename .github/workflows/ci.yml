@@ -33,8 +33,16 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Debug the bridge test
-        run: ./gradlew --no-daemon :shared:core:testAndroidHostTest --tests '*PhoneToolsBridgeTest*' -i
+        run: ./gradlew --no-daemon :shared:core:testAndroidHostTest
         continue-on-error: true
+
+      - name: Test results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-test-results
+          path: shared/core/build/test-results/testAndroidHostTest
+          if-no-files-found: ignore
 
       - name: Lint report
         if: failure()
