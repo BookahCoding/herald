@@ -50,8 +50,9 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.composables.icons.lucide.Ellipsis
-import dev.hermeskotlin.designsystem.HeraldBrandBlue
-import dev.hermeskotlin.designsystem.HeraldMark
+import dev.hermeskotlin.designsystem.ShishaBrandVermilion
+import dev.hermeskotlin.designsystem.ShishaMark
+import dev.hermeskotlin.designsystem.ShishaMarkPaper
 import dev.hermeskotlin.designsystem.components.glow
 import dev.hermeskotlin.designsystem.components.halo
 import dev.hermeskotlin.designsystem.dangerSoft
@@ -1054,12 +1055,12 @@ internal fun chatStatus(state: ChatState, connected: Boolean, connectionLabel: S
             StatusTone.Busy,
         )
     }
-    else -> BarStatus(listOfNotNull("Hermes", place).joinToString(" · "), StatusTone.Ok)
+    else -> BarStatus(listOfNotNull("Shisha", place).joinToString(" · "), StatusTone.Ok)
 }
 
 /** Where the empty chat says Hermes runs: "Hermes on homelab · default profile". */
 internal fun greetingPlace(place: String?, profile: String?): String =
-    "${place?.let { "Hermes on $it" } ?: "Hermes"} · ${profile ?: "default"} profile"
+    "${place?.let { "Shisha on $it" } ?: "Shisha"} · ${profile ?: "default"} profile"
 
 /**
  * The sessions button, the title with a status line under it, and new chat with the chat's options
@@ -1214,18 +1215,18 @@ private fun Greeting(
     }
 }
 
-/** The app's mark: the white H on a Herald blue rounded square, with its glow under it unless it's small. */
+/** The agent's mark: 使 in washi paper on a vermilion seal, with its glow under it unless it's small. */
 @Composable
 internal fun AppMark(size: Dp, glow: Boolean = true) {
     val shape = RoundedCornerShape(size * 0.29f)
     Box(
         Modifier
             .size(size)
-            .then(if (glow) Modifier.glow(shape, bubbleGlow(HeraldBrandBlue)) else Modifier)
-            .background(HeraldBrandBlue, shape),
+            .then(if (glow) Modifier.glow(shape, bubbleGlow(ShishaBrandVermilion)) else Modifier)
+            .background(ShishaBrandVermilion, shape),
         contentAlignment = Alignment.Center,
     ) {
-        UnstyledIcon(HeraldMark, contentDescription = null, tint = Color.White, modifier = Modifier.size(size * 0.6f))
+        UnstyledIcon(ShishaMark, contentDescription = null, tint = ShishaMarkPaper, modifier = Modifier.size(size * 0.7f))
     }
 }
 
@@ -1262,7 +1263,7 @@ internal fun dictateLabel(state: DictationState): String = when {
 /** Hermes Desktop's composer lines (`composer.newSessionPlaceholders` / `followUpPlaceholders`). */
 private val NEW_CHAT_PROMPTS = listOf(
     "What are we building?",
-    "Give Hermes a task",
+    "Give Shisha a task",
     "What's on your mind?",
     "Describe what you need",
     "What should we tackle?",
@@ -1673,7 +1674,7 @@ private fun OfflineBanner(place: String?, status: String, onRetry: () -> Unit) {
 }
 
 /** What the offline banner leads with. */
-internal fun offlineTitle(place: String?): String = "Can't reach ${place?.takeIf { it.isNotBlank() } ?: "Hermes"}"
+internal fun offlineTitle(place: String?): String = "Can't reach ${place?.takeIf { it.isNotBlank() } ?: "Shisha"}"
 
 /** A small pill button, drawn 30dp tall with the full touch height around it. */
 @Composable
@@ -1883,7 +1884,7 @@ private fun DeliveryMark(check: SendCheck) {
 
 /** What's said under a prompt whose delivery is in doubt. */
 internal fun deliveryLabel(check: SendCheck): String = when (check) {
-    SendCheck.Checking -> "Checking whether Hermes got this…"
+    SendCheck.Checking -> "Checking whether Shisha got this…"
     SendCheck.Unknown -> "May not have arrived"
     SendCheck.NotReceived -> "Not delivered"
 }
@@ -1922,7 +1923,7 @@ private fun UnsettledActions(check: SendCheck, key: String, actions: ChatActions
         visible = confirmResend,
         onDismissRequest = { confirmResend = false },
         title = "Resend this message?",
-        message = "Hermes may already have it. If it does, resending makes Hermes get the same request twice and run it again. " +
+        message = "Shisha may already have it. If it does, resending makes Shisha get the same request twice and run it again. " +
             "Tap Check first to be sure.",
         actions = {
             Button("Cancel", onClick = { confirmResend = false }, variant = ButtonVariant.Ghost)
@@ -2012,11 +2013,11 @@ private fun ConfirmChange(
                 "Copies this chat up to this message into a new chat and opens it. This chat stays as it is. " +
                     "No task starts until you send something in the new chat."
             MessageChange.Regenerate ->
-                "This will discard $later, here and on Hermes, and send the prompt again."
+                "This will discard $later, here and on Shisha, and send the prompt again."
             MessageChange.Edit ->
                 "Sending the edit will discard $later, here and on Hermes. Nothing changes until you send it."
             else ->
-                "Takes your last message and Hermes's reply to it off this chat and puts the message back in the composer. " +
+                "Takes your last message and Shisha's reply to it off this chat and puts the message back in the composer. " +
                     "No task starts until you send it again."
         },
         actions = {
@@ -2146,7 +2147,7 @@ internal fun ReplyHeader(epochSeconds: Double?) {
     val speaker = LocalReplySpeaker.current
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (speaker != null) DecodedBotAvatar(speaker.face, LocalReplySpeakerPicture.current, size = 20.dp) else AppMark(20.dp, glow = false)
-        Text(speaker?.name ?: "Hermes", style = Theme[typography][label], color = Theme[colors][textSecondary])
+        Text(speaker?.name ?: "Shisha", style = Theme[typography][label], color = Theme[colors][textSecondary])
         MessageTimeLabel(epochSeconds)
     }
 }
@@ -2934,7 +2935,7 @@ private fun Composer(
                             placeholder = {
                                 Text(
                                     when {
-                                        !connected -> "Reconnecting to Hermes…"
+                                        !connected -> "Reconnecting to Shisha…"
                                         comments.isNotEmpty() -> "Anything else? (optional)"
                                         // Mid-task a message joins the running task, by Queue or Steer.
                                         state.running -> "Add to this task…"
@@ -2998,7 +2999,7 @@ private fun Composer(
             {
                 FoldedComposer(
                     placeholder = when {
-                        !connected -> "Reconnecting to Hermes…"
+                        !connected -> "Reconnecting to Shisha…"
                         state.running -> "Add to this task…"
                         else -> placeholder
                     },

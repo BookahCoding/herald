@@ -4,7 +4,7 @@
     <!-- The app theme can override the system one; HeraldActivity picks between these. -->
     <color name="window_background_light">#F7F7F9</color>
     <color name="window_background_dark">#0A0A0C</color>
-    <!-- The brand mark keeps its own blue, as the design's herald-logo.svg does. -->
-    <color name="launcher_background">#0053FD</color>
-    <color name="notification_accent">#2F6BF5</color>
+    <!-- The icon is the Ukiyo-e vermilion (AccentPalette), the mark in washi paper. -->
+    <color name="launcher_background">#A63F2D</color>
+    <color name="notification_accent">#C4513B</color>
 </resources>
