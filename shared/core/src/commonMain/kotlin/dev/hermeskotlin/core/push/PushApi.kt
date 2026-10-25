@@ -525,7 +525,7 @@ class PushApi(
         const val PLUGIN_REPO = "https://github.com/BookahCoding/hermes-herald-push"
 
         /** The plugin commit this Herald was built and reviewed against. */
-        const val PLUGIN_REF = "922162b4e0356a299f506a2f64d06ca66f1dc2d1"
+        const val PLUGIN_REF = "b3dda47b11d0d4cc35defdd2c10aec0875612dcd"
 
         /** The version at [PLUGIN_REF]: an older copy on the gateway is offered this as an update. */
         const val PLUGIN_VERSION = "0.6.0"
