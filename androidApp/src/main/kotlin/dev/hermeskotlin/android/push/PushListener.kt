@@ -21,6 +21,7 @@ import dev.hermeskotlin.core.push.PushCrypto
 import dev.hermeskotlin.core.push.PushDirection
 import dev.hermeskotlin.core.push.PushGuard
 import dev.hermeskotlin.core.push.PushMessage
+import dev.hermeskotlin.core.push.PushRules
 import dev.hermeskotlin.core.settings.SettingsStore
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -144,10 +145,11 @@ class PushListener(
         val text = message.text?.trim()?.takeIf { it.isNotEmpty() } ?: return
         val prefs = settings.settings.first { it != null } ?: return
         if (!prefs.notifyReplies) return
-        // In sight and connected, the app shows it already.
-        if (visibility.visible.value && connection.state.value is ConnectionState.Connected) return
         val bot = bots.knownBot(name) ?: fallbackBot(name, message.label)
-        if (bot.meta.hidden) return
+        // In sight and connected, the app shows it already; a hidden bot stays quiet. The Settings check's own test
+        // message is always shown, since it has no chat to appear in.
+        val connected = connection.state.value is ConnectionState.Connected
+        if (!PushRules.showsBotMessage(session, visibility.visible.value, connected, bot.meta.hidden)) return
         notifications.postBotMessage(bot, bots.picture(bot), session, text, viaPush = true)
     }
 
