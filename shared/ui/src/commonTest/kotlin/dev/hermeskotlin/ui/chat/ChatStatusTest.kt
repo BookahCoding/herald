@@ -63,14 +63,14 @@ class ChatStatusTest {
 
     @Test
     fun idleSaysWhereHermesRuns() {
-        assertEquals(BarStatus("Hermes · homelab", StatusTone.Ok), status(ChatState()))
-        assertEquals(BarStatus("Hermes", StatusTone.Ok), status(ChatState(), place = null))
+        assertEquals(BarStatus("Shisha · homelab", StatusTone.Ok), status(ChatState()))
+        assertEquals(BarStatus("Shisha", StatusTone.Ok), status(ChatState(), place = null))
     }
 
     @Test
     fun theGreetingNamesThePlaceAndProfile() {
-        assertEquals("Hermes on homelab · work profile", greetingPlace("homelab", "work"))
-        assertEquals("Hermes on homelab · default profile", greetingPlace("homelab", null))
-        assertEquals("Hermes · default profile", greetingPlace(null, null))
+        assertEquals("Shisha on homelab · work profile", greetingPlace("homelab", "work"))
+        assertEquals("Shisha on homelab · default profile", greetingPlace("homelab", null))
+        assertEquals("Shisha · default profile", greetingPlace(null, null))
     }
 }

@@ -30,10 +30,10 @@ class VoiceAnswersTest {
     @Test
     fun theApprovalPromptOffersOnlyWhatTheGatewayAccepts() {
         assertEquals(
-            "Hermes needs your approval: Delete the build folder. Say yes, for this chat, always, or no.",
+            "Shisha needs your approval: Delete the build folder. Say yes, for this chat, always, or no.",
             VoiceAnswers.approvalPrompt(approval),
         )
-        assertEquals("Hermes needs your approval: rm -rf build. Say yes, or no.", VoiceAnswers.approvalPrompt(onceOnly.copy(description = "")))
+        assertEquals("Shisha needs your approval: rm -rf build. Say yes, or no.", VoiceAnswers.approvalPrompt(onceOnly.copy(description = "")))
     }
 
     @Test

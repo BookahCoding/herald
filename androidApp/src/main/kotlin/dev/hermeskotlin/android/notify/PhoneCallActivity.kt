@@ -36,7 +36,7 @@ class PhoneCallActivity : ComponentActivity() {
     private val model: PhoneCallModel by viewModel()
 
     private val microphone = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) model.start() else leave("Herald needs the microphone for calls. The question is in the chat.")
+        if (granted) model.start() else leave("Hikyaku needs the microphone for calls. The question is in the chat.")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,7 +67,7 @@ class PhoneCallActivity : ComponentActivity() {
         val chat = ringing?.storedSessionId
         // A call from the agent may have no chat on this gateway (Desktop's, say): it talks in a new one.
         if (requestId == null || ringing == null || (chat == null && ringing.agent == null)) return finish()
-        model.pickUp(PickedUpCall(requestId, chat, ringing.title?.takeIf { it.isNotBlank() } ?: "Hermes", ringing.request, ringing.agent))
+        model.pickUp(PickedUpCall(requestId, chat, ringing.title?.takeIf { it.isNotBlank() } ?: "Shisha", ringing.request, ringing.agent))
         // Picked up: it stops ringing at once, whatever comes next.
         notifications.answered(requestId)
         unlockThenTalk()
@@ -88,7 +88,7 @@ class PhoneCallActivity : ComponentActivity() {
             object : KeyguardManager.KeyguardDismissCallback() {
                 override fun onDismissSucceeded() = withMicrophone()
                 override fun onDismissCancelled() = leave(null)
-                override fun onDismissError() = leave("Herald couldn't unlock the phone for the call. The question is in the chat.")
+                override fun onDismissError() = leave("Hikyaku couldn't unlock the phone for the call. The question is in the chat.")
             },
         )
     }

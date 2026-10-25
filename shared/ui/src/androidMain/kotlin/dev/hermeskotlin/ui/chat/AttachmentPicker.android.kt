@@ -113,7 +113,7 @@ suspend fun readAttachments(context: Context, uris: List<Uri>): Pair<List<Outgoi
         when (val e = result.exceptionOrNull()) {
             null -> null
             // A share whose app didn't grant access; Android's message is a raw URI.
-            is SecurityException -> "The app that shared it didn't let Herald read the file."
+            is SecurityException -> "The app that shared it didn't let Hikyaku read the file."
             else -> e.message ?: "Couldn't read a file."
         }
     }

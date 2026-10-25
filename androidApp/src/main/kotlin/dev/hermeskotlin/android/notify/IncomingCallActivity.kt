@@ -40,7 +40,7 @@ class IncomingCallActivity : ComponentActivity(), OutOfSight {
         }
         setContent {
             IncomingCallScreen(
-                caller = call.title?.takeIf { it.isNotBlank() } ?: "Hermes",
+                caller = call.title?.takeIf { it.isNotBlank() } ?: "Shisha",
                 // Over the lock screen: who's calling, never what about.
                 why = if (call.agent != null) agentCallReason() else callReason(call.request is InputRequest.Approval),
                 onAnswer = { answer(requestId) },

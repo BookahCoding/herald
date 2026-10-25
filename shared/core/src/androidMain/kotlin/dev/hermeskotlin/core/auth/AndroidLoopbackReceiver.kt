@@ -66,7 +66,7 @@ class AndroidLoopbackReceiver(private val returnUri: String) : LoopbackReceiver 
             }
             val body = "<!doctype html><meta charset=utf-8><meta name=viewport content=\"width=device-width\">" +
                 "<title>Signed in</title><p style=\"font-family:sans-serif;padding:24px\">Signed in. " +
-                "<a href=\"$returnUri\">Go back to Herald</a></p>"
+                "<a href=\"$returnUri\">Go back to Hikyaku</a></p>"
             val bytes = body.toByteArray()
             out.write(
                 ("HTTP/1.1 302 Found\r\nLocation: $returnUri\r\nContent-Type: text/html; charset=utf-8\r\n" +

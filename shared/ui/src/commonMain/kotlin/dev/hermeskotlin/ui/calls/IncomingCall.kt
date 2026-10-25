@@ -89,7 +89,7 @@ internal fun IncomingCallView(caller: String, why: String, onAnswer: () -> Unit,
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("Herald call", style = Theme[typography][label], color = Theme[colors][textSecondary])
+            Text("Hikyaku call", style = Theme[typography][label], color = Theme[colors][textSecondary])
             Text(
                 caller,
                 style = Theme[typography][display],
@@ -180,7 +180,7 @@ internal fun InCallView(state: PhoneCallState, seconds: Long, onMute: () -> Unit
             ) {
                 if (state.error == null) {
                     Text(
-                        if (voice.captionIsVoice) "Hermes" else "You",
+                        if (voice.captionIsVoice) "Shisha" else "You",
                         style = Theme[typography][label],
                         color = Theme[colors][textSecondary],
                     )

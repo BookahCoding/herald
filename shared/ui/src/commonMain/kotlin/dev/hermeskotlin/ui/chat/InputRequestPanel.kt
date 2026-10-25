@@ -280,7 +280,7 @@ private fun CommandBlock(command: String) {
 
 /** The tool and purpose ahead of the command, each only when the gateway named it; null when neither. */
 internal fun approvalIntro(request: InputRequest.Approval): String? {
-    val tool = request.toolName?.takeIf { it.isNotBlank() }?.let { "Hermes wants to run this with $it." }
+    val tool = request.toolName?.takeIf { it.isNotBlank() }?.let { "Shisha wants to run this with $it." }
     val purpose = request.description.takeIf { it.isNotBlank() }?.replaceFirstChar { it.uppercase() }
     return listOfNotNull(tool, purpose).joinToString(" ").ifEmpty { null }
 }
@@ -374,7 +374,7 @@ private fun ClarifyContent(request: InputRequest.Clarify, more: String?, connect
     }
 
     val counter = if (questions.size > 1) "${index + 1} of ${questions.size}" else more
-    Header(Lucide.MessageCircleQuestion, Theme[colors][accentText], Theme[colors][accentSoft], "Hermes asks", counter, onStop)
+    Header(Lucide.MessageCircleQuestion, Theme[colors][accentText], Theme[colors][accentSoft], "Shisha asks", counter, onStop)
     Text(question.question, style = Theme[typography][body], color = Theme[colors][textColor])
     if (question.choices.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -531,8 +531,8 @@ private fun SaveLoginContent(request: InputRequest.VaultSaveLogin, more: String?
 
     Header(Lucide.KeyRound, Theme[colors][warning], Theme[colors][warningSoft], request.title, more, onStop)
     Text(
-        (if (page.isBlank()) "Hermes is on a sign-in page" else "Hermes is on the sign-in page of $page") +
-            " and has no login for it. Save one to your gateway's vault, and Hermes signs in with it.",
+        (if (page.isBlank()) "Shisha is on a sign-in page" else "Shisha is on the sign-in page of $page") +
+            " and has no login for it. Save one to your gateway's vault, and Shisha signs in with it.",
         style = Theme[typography][bodySmall],
         color = Theme[colors][textSecondary],
     )

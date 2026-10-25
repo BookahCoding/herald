@@ -511,7 +511,7 @@ internal fun SettingsView(
                     Divider()
                     SwitchRow(
                         title = "Show link previews",
-                        detail = "A card for each web link in a finished reply. Herald opens the linked pages and their pictures itself, without your gateway's cookies.",
+                        detail = "A card for each web link in a finished reply. Hikyaku opens the linked pages and their pictures itself, without your gateway's cookies.",
                         checked = settings.showLinkPreviews,
                         onCheckedChange = { on -> onUpdate { it.copy(showLinkPreviews = on) } },
                         icon = Lucide.Globe,
@@ -596,14 +596,14 @@ internal fun SettingsView(
                     Divider()
                     SwitchRow(
                         title = "Finished replies",
-                        detail = "When a turn ends while Herald is in the background. Reply from the notification.",
+                        detail = "When a turn ends while Hikyaku is in the background. Reply from the notification.",
                         checked = settings.notifyReplies,
                         onCheckedChange = { on -> onUpdate { it.copy(notifyReplies = on) } },
                         icon = Lucide.MessageCircle,
                     )
                     Divider()
                     SwitchRow(
-                        title = "Notify for other chats while Herald is open",
+                        title = "Notify for other chats while Hikyaku is open",
                         detail = "Replies and requests in chats other than the one on screen notify even while you're in Herald.",
                         checked = settings.notifyOtherChatsInApp,
                         onCheckedChange = { on -> onUpdate { it.copy(notifyOtherChatsInApp = on) } },
@@ -706,8 +706,8 @@ internal fun SettingsView(
                     SwitchRow(
                         title = "App lock",
                         detail = if (canLock || settings.appLock) {
-                            "Ask for your fingerprint, face or screen lock when Herald opens and after a minute away. " +
-                                "Hides Herald in Recents and blocks screenshots of it. Notification actions keep working."
+                            "Ask for your fingerprint, face or screen lock when Hikyaku opens and after a minute away. " +
+                                "Hides Hikyaku in Recents and blocks screenshots of it. Notification actions keep working."
                         } else {
                             "Set a screen lock in Android's settings first."
                         },
@@ -798,7 +798,7 @@ private fun pushDetail(on: Boolean, push: PushStatus): String {
             "The gateway's herald-push plugin is ${it.installed}; this needs ${it.available}. Update it below."
         } ?: "The gateway's herald-push plugin is too old."
         PushStatus.State.Failed -> "Couldn't set up: ${push.detail ?: "unknown error"}"
-        PushStatus.State.Unknown, PushStatus.State.Off -> "On. Checks with the gateway the next time Herald reaches it."
+        PushStatus.State.Unknown, PushStatus.State.Off -> "On. Checks with the gateway the next time Hikyaku reaches it."
     }
 }
 

@@ -143,7 +143,7 @@ class MainActivity : ComponentActivity() {
         // The watch's speech recognizer, straight to listening: talking is what the mic is for.
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask Hermes")
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Ask Shisha")
         if (intent.resolveActivity(packageManager) != null) {
             try {
                 recognize.launch(intent)
@@ -188,7 +188,7 @@ class MainActivity : ComponentActivity() {
         private const val EXTRA_CALL = "call"
         private const val EXTRA_DEBUG_ASK = "ask"
         private const val PHONE_CHECK_MS = 30_000L
-        private const val NEEDS_MICROPHONE = "Herald needs the microphone to hear you."
+        private const val NEEDS_MICROPHONE = "Hikyaku needs the microphone to hear you."
 
         /** For a PendingIntent, which starts it in its own task (it's singleTask) and to its onNewIntent when open. */
         fun listenIntent(context: Context): Intent = Intent(context, MainActivity::class.java).putExtra(EXTRA_LISTEN, true)

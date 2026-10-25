@@ -27,10 +27,10 @@ class MentionsTest {
             Bot(name = "research-buddy", displayName = "Research Buddy"),
             Bot(name = "secret", uiMeta = kotlinx.serialization.json.Json.parseToJsonElement("""{"hermes-bots":{"hidden":true}}""") as kotlinx.serialization.json.JsonObject),
         )
-        assertEquals(listOf("hermes", "research-buddy", "test1"), bots.mentionable("", self = null).map { it.handle })
+        assertEquals(listOf("research-buddy", "hermes", "test1"), bots.mentionable("", self = null).map { it.handle })
         assertEquals(listOf("test1"), bots.mentionable("te", self = null).map { it.handle })
         assertEquals(listOf("research-buddy"), bots.mentionable("bud", self = null).map { it.handle })
-        assertEquals(listOf("hermes"), bots.mentionable("her", self = "test1").map { it.handle })
+        assertEquals(listOf("hermes"), bots.mentionable("shi", self = "test1").map { it.handle })
         // The bot whose chat it is isn't offered to itself.
         assertEquals(emptyList(), bots.mentionable("test", self = "test1").map { it.handle })
     }

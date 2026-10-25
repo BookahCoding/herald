@@ -10,6 +10,6 @@ class DeliveryLabelTest {
     fun eachDoubtSaysWhereThePromptStands() {
         assertEquals("Not delivered", deliveryLabel(SendCheck.NotReceived))
         assertEquals("May not have arrived", deliveryLabel(SendCheck.Unknown))
-        assertEquals("Checking whether Hermes got this…", deliveryLabel(SendCheck.Checking))
+        assertEquals("Checking whether Shisha got this…", deliveryLabel(SendCheck.Checking))
     }
 }

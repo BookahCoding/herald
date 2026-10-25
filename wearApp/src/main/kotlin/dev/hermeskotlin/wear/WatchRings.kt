@@ -44,7 +44,7 @@ class WatchRings(private val context: Context) {
         manager.createNotificationChannel(
             NotificationChannelCompat.Builder(CHANNEL, NotificationManagerCompat.IMPORTANCE_HIGH)
                 .setName("Calls for an answer")
-                .setDescription("Hermes calls when it needs an approval or an answer, or something can't wait, if the phone rings for it.")
+                .setDescription("Shisha calls when it needs an approval or an answer, or something can't wait, if the phone rings for it.")
                 .setVibrationEnabled(true)
                 .setVibrationPattern(VIBRATION)
                 .build(),

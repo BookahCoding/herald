@@ -136,7 +136,7 @@ class OfflineCache(
         const val MAX_ROW_BYTES = 1_000_000
 
         /** What a row too big to keep shows instead of its text. */
-        const val TOO_BIG_NOTE = "(Too long to keep on this device. Hermes has the full text.)"
+        const val TOO_BIG_NOTE = "(Too long to keep on this device. Shisha has the full text.)"
 
         private val json = Json { ignoreUnknownKeys = true }
     }

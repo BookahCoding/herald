@@ -92,7 +92,7 @@ class WatchTextTest {
         assertEquals("Live", callCaption(live))
         assertEquals(OrbMood.Listening, callMood(live))
         assertEquals("Muted", callCaption(live.copy(muted = true)))
-        assertEquals("Hermes: terminal", callCaption(live.copy(thinking = true, working = "terminal")))
+        assertEquals("Shisha: terminal", callCaption(live.copy(thinking = true, working = "terminal")))
         assertEquals(OrbMood.Working, callMood(live.copy(thinking = true)))
         assertEquals(OrbMood.Speaking, callMood(live.copy(speaking = true)))
         assertEquals("Call ended", callCaption(live.copy(stage = CallStage.Ended)))

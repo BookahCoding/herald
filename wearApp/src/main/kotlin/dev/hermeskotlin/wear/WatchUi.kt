@@ -276,7 +276,7 @@ private fun TalkScreen(
                                 contentDescription = when {
                                     mic.recording -> "Done talking"
                                     running || speaking -> "Stop"
-                                    else -> "Talk to Hermes"
+                                    else -> "Talk to Shisha"
                                 } + chat.contextPercent?.let { ", context $it% full" }.orEmpty()
                             },
                     )
@@ -309,7 +309,7 @@ private fun CallScreen(call: WatchCallState, mood: OrbMood, onMute: () -> Unit, 
         val h = maxHeight
         val side = w * 0.27f
         Text(
-            "Hermes",
+            "Shisha",
             style = geist(20, FontWeight.SemiBold),
             textAlign = TextAlign.Center,
             maxLines = 1,
@@ -478,7 +478,7 @@ internal fun callCaption(call: WatchCallState): String = when (call.stage) {
     CallStage.Connecting -> "Connecting…"
     CallStage.Live -> when {
         call.muted -> "Muted"
-        call.thinking -> call.working?.let { "Hermes: $it" } ?: "Hermes is on it…"
+        call.thinking -> call.working?.let { "Shisha: $it" } ?: "Shisha is on it…"
         else -> "Live"
     }
     CallStage.Ended -> call.error ?: "Call ended"
@@ -709,8 +709,8 @@ internal fun ago(epochSeconds: Double?, nowMillis: Long = System.currentTimeMill
 private fun phoneProblem(phone: PhoneState): String? = when (phone) {
     PhoneState.NotConnected -> WatchLink.NOT_CONNECTED
     PhoneState.NoHerald -> WatchLink.NO_HERALD
-    PhoneState.SignedOut -> "Sign in to Herald on your phone first."
-    PhoneState.Unreachable -> "Herald can't reach your gateway. Check it on your phone."
+    PhoneState.SignedOut -> "Sign in to Hikyaku on your phone first."
+    PhoneState.Unreachable -> "Hikyaku can't reach your gateway. Check it on your phone."
     PhoneState.Unknown, PhoneState.Ready, PhoneState.Reconnecting -> null
 }
 

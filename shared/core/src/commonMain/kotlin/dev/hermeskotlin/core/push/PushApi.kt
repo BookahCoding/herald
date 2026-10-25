@@ -175,7 +175,7 @@ class PushApi(
 
     suspend fun register(registration: PushRegistration): PushPluginReply =
         command("register " + HermesJson.encodeToString(PushRegistration.serializer(), registration))
-            ?: throw RpcException(0, "Herald push isn't installed on the gateway.")
+            ?: throw RpcException(0, "Hikyaku push isn't installed on the gateway.")
 
     suspend fun unregister(deviceId: String): Boolean = command("unregister $deviceId")?.ok == true
 

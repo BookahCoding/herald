@@ -19,7 +19,7 @@ class ApprovalIntroTest {
     @Test
     fun toolAndPurposeReadAsOneLine() {
         assertEquals(
-            "Hermes wants to run this with terminal. Run the backup now",
+            "Shisha wants to run this with terminal. Run the backup now",
             approvalIntro(approval("terminal", "run the backup now")),
         )
     }

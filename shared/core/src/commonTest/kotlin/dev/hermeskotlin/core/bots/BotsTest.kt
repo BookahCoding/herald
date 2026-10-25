@@ -62,7 +62,7 @@ class BotsTest {
     @Test
     fun namesFollowDesktop() {
         val bots = parseBotRoster(reply).bots
-        assertEquals("Hermes", bots[0].label)
+        assertEquals("Shisha", bots[0].label)
         assertEquals("Test1", bots[1].label)
         // An empty Bot Mode title doesn't hide the name.
         assertEquals("Test2", bots[2].label)

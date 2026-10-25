@@ -59,20 +59,20 @@ class GeofenceReceiver : BroadcastReceiver(), KoinComponent {
         if (sent == SENT) {
             confirmations.tell(place.id, event, "Sent to $chat: ${place.message}")
         } else {
-            confirmations.tell(place.id, event, "Couldn't send it to $chat: $sent. Open Herald to send it yourself.")
+            confirmations.tell(place.id, event, "Couldn't send it to $chat: $sent. Open Hikyaku to send it yourself.")
         }
     }
 
     /** [SENT], or why it couldn't go. */
     private suspend fun send(place: WatchedPlace, text: String): String {
         val gateway = gateways.current()?.gatewayUrl
-        if (gateway?.value != place.gateway) return "Herald is signed in to another gateway now"
+        if (gateway?.value != place.gateway) return "Hikyaku is signed in to another gateway now"
         val open = host.session.value
         if (open != null && open.state.value.storedSessionId == place.storedSessionId && open.profile == place.profile) {
             awaitConnection(gateway)
             return if (open.send(text)) SENT else open.state.value.error ?: "it wasn't accepted"
         }
-        if (awaitConnection(gateway) !is ConnectionState.Connected) return "Herald couldn't reach the gateway"
+        if (awaitConnection(gateway) !is ConnectionState.Connected) return "Hikyaku couldn't reach the gateway"
         return try {
             chats.sendToChat(place.profile, place.storedSessionId, text)
             SENT

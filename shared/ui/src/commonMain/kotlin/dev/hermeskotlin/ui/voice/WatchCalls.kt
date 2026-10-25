@@ -310,7 +310,7 @@ class WatchCalls(
 
     companion object {
         const val NOT_LIVE = "Live voice isn't set up on your gateway any more. Tap to ask one question at a time."
-        const val CALL_LOST = "Herald on your phone lost the call."
+        const val CALL_LOST = "Hikyaku on your phone lost the call."
         private const val UPDATE_EVERY_MS = 250L
         private const val ANSWER_AGAIN_MS = 1_500L
         private const val SEND_GATHER_MS = 60L

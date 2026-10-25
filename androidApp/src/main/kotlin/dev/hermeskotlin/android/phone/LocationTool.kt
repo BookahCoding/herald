@@ -56,13 +56,13 @@ internal class LocationTool(private val context: Context) {
     suspend fun locate(fresh: Boolean, old: Boolean = true): Location {
         val precise = granted(Manifest.permission.ACCESS_FINE_LOCATION)
         if (!precise && !granted(Manifest.permission.ACCESS_COARSE_LOCATION)) {
-            throw PhoneToolException("Herald isn't allowed to use the phone's location. The user can allow it in Herald: Settings → Phone tools.")
+            throw PhoneToolException("Hikyaku isn't allowed to use the phone's location. The user can allow it in Hikyaku: Settings → Phone tools.")
         }
         // Android only hands an app in the background its location with "all the time" access, and then quietly.
         if (!visible() && !backgroundAllowed()) {
             throw PhoneToolException(
-                "Herald is in the background and may only read the location while it's open. Ask the user to open Herald, " +
-                    "or to allow location all the time in Herald: Settings → Phone tools.",
+                "Hikyaku is in the background and may only read the location while it's open. Ask the user to open Hikyaku, " +
+                    "or to allow location all the time in Hikyaku: Settings → Phone tools.",
             )
         }
         val manager = context.getSystemService(LocationManager::class.java) ?: throw PhoneToolException("The phone has no location service.")

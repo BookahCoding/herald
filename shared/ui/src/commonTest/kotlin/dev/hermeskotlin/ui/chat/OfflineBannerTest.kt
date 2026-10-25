@@ -8,7 +8,7 @@ class OfflineBannerTest {
     @Test
     fun itNamesTheGatewayItCantReach() {
         assertEquals("Can't reach homelab", offlineTitle("homelab"))
-        assertEquals("Can't reach Hermes", offlineTitle(null))
-        assertEquals("Can't reach Hermes", offlineTitle(" "))
+        assertEquals("Can't reach Shisha", offlineTitle(null))
+        assertEquals("Can't reach Shisha", offlineTitle(" "))
     }
 }

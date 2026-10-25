@@ -138,7 +138,7 @@ class SpeechTest {
     @Test
     fun onlyAWholeStopUtteranceEndsTheChat() {
         assertTrue(isVoiceStopCommand("Stop."))
-        assertTrue(isVoiceStopCommand("Hey Hermes, never mind!"))
+        assertTrue(isVoiceStopCommand("Hey Shisha, never mind!"))
         assertTrue(isVoiceStopCommand("okay goodbye"))
         assertFalse(isVoiceStopCommand("stop the docker container"))
         assertFalse(isVoiceStopCommand("how do I cancel a job"))

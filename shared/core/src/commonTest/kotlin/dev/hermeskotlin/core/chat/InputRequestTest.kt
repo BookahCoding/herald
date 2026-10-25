@@ -79,13 +79,13 @@ class InputRequestTest {
             InputRequest.parse("srq-1", "vault.unlock_prompt", params("""{"session_id":"s","backend":"bitwarden","display_name":"Bitwarden"}""")),
         )
         assertEquals(InputRequest.Secret.Kind.VaultUnlock, named.kind)
-        assertEquals("Hermes needs Bitwarden unlocked to sign in for you.", named.prompt)
+        assertEquals("Shisha needs Bitwarden unlocked to sign in for you.", named.prompt)
 
         val backendOnly = assertIs<InputRequest.Secret>(InputRequest.parse("srq-2", "vault.unlock_prompt", params("""{"backend":"onepassword","display_name":""}""")))
-        assertEquals("Hermes needs onepassword unlocked to sign in for you.", backendOnly.prompt)
+        assertEquals("Shisha needs onepassword unlocked to sign in for you.", backendOnly.prompt)
 
         val bare = assertIs<InputRequest.Secret>(InputRequest.parse("srq-3", "vault.unlock_prompt", params("{}")))
-        assertEquals("Hermes needs your password manager unlocked to sign in for you.", bare.prompt)
+        assertEquals("Shisha needs your password manager unlocked to sign in for you.", bare.prompt)
     }
 
     @Test

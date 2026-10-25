@@ -32,7 +32,7 @@ internal class ScreenTimeTool(private val context: Context) {
         val days = args.int("days") ?: 1
         if (days !in 1..7) throw PhoneToolException("days is 1 (today) to 7.")
         if (!allowed(context)) {
-            throw PhoneToolException("Herald isn't allowed to see screen time. The user can allow it in Settings → Phone tools.")
+            throw PhoneToolException("Hikyaku isn't allowed to see screen time. The user can allow it in Settings → Phone tools.")
         }
         val stats = context.getSystemService(UsageStatsManager::class.java)
             ?: throw PhoneToolException("The phone doesn't keep screen time.")

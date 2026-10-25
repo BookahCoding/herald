@@ -584,9 +584,9 @@ class VoiceController(
                 stopped = true
                 pointedAt += typed.id
                 val said = if (typed is InputRequest.Approval) {
-                    "Hermes needs your approval. Unlock the phone, and I'll ask you for it."
+                    "Shisha needs your approval. Unlock the phone, and I'll ask you for it."
                 } else {
-                    "Hermes needs something typed in the chat to go on."
+                    "Shisha needs something typed in the chat to go on."
                 }
                 _chat.update { it.copy(phase = VoicePhase.Speaking, caption = said, captionIsVoice = true) }
                 speak(said, gateway, profile)

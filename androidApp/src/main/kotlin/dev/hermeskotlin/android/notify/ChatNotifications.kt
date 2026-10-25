@@ -61,7 +61,7 @@ class ChatNotifications(
             listOf(
                 NotificationChannelCompat.Builder(CHANNEL_CONNECTION, NotificationManagerCompat.IMPORTANCE_MIN)
                     .setName("Background connection")
-                    .setDescription("Shown while Herald stays connected in the background, or works on a turn.")
+                    .setDescription("Shown while Hikyaku stays connected in the background, or works on a turn.")
                     .setShowBadge(false)
                     .build(),
                 NotificationChannelCompat.Builder(CHANNEL_REQUESTS, NotificationManagerCompat.IMPORTANCE_HIGH)
@@ -172,14 +172,14 @@ class ChatNotifications(
      */
     fun ongoing(connection: ConnectionState, pushAnywhere: Boolean = false): Notification {
         val text = when {
-            connection is ConnectionState.Connected -> "Connected to Hermes"
-            connection is ConnectionState.Connecting || connection is ConnectionState.Reconnecting -> "Reconnecting to Hermes…"
+            connection is ConnectionState.Connected -> "Connected to Shisha"
+            connection is ConnectionState.Connecting || connection is ConnectionState.Reconnecting -> "Reconnecting to Shisha…"
             // Notifications anywhere holds the ntfy stream instead, so no connection isn't something wrong.
             pushAnywhere -> "Bot messages reach you through Notifications anywhere"
-            else -> "Not connected to Hermes"
+            else -> "Not connected to Shisha"
         }
         return base(CHANNEL_CONNECTION)
-            .setContentTitle("Herald")
+            .setContentTitle("Hikyaku")
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -194,7 +194,7 @@ class ChatNotifications(
     /** The ongoing notification of a voice chat kept up like a call ([VoiceCallService]): back to it, or [end] it. */
     fun voiceCall(end: PendingIntent): Notification = base(CHANNEL_VOICE)
         .setContentTitle("Voice chat")
-        .setContentText("Talking with Hermes")
+        .setContentText("Talking with Shisha")
         .setCategory(NotificationCompat.CATEGORY_CALL)
         .setOngoing(true)
         .setAutoCancel(false)
@@ -252,7 +252,7 @@ class ChatNotifications(
             }
             is InputRequest.Clarify -> {
                 val question = request.questions.singleOrNull()
-                builder.setContentTitle("Hermes has a question")
+                builder.setContentTitle("Shisha has a question")
                     .setContentText(question?.question ?: "${request.questions.size} questions")
                     .setStyle(NotificationCompat.BigTextStyle().bigText(request.questions.joinToString("\n") { it.question }))
                 if (question != null && !request.batch && !question.multiSelect) {
@@ -284,7 +284,7 @@ class ChatNotifications(
                 .setContentText(request.command ?: request.prompt)
             is InputRequest.VaultSaveLogin -> builder
                 .setContentTitle(request.title)
-                .setContentText("Hermes has no login for ${request.site.ifBlank { "this site" }}. Open the chat to save one.")
+                .setContentText("Shisha has no login for ${request.site.ifBlank { "this site" }}. Open the chat to save one.")
         }
         return post(request.id, REQUEST_ID, builder.build())
     }
@@ -368,7 +368,7 @@ class ChatNotifications(
     }
 
     private fun callBuilder(call: Ringing, localOnly: Boolean, again: Boolean, why: String): NotificationCompat.Builder {
-        val caller = Person.Builder().setName(call.title?.takeIf { it.isNotBlank() } ?: "Hermes").setImportant(true).build()
+        val caller = Person.Builder().setName(call.title?.takeIf { it.isNotBlank() } ?: "Shisha").setImportant(true).build()
         val answer = PendingIntent.getActivity(
             context,
             (ACTION_ANSWER + call.id).hashCode(),
@@ -504,10 +504,10 @@ class ChatNotifications(
     /** A finished turn, with an inline Reply that sends the next prompt to the same chat. */
     fun postReply(storedSessionId: String, title: String?, text: String, failed: Boolean) {
         val preview = text.toPlainText().take(MAX_PREVIEW).ifBlank { if (failed) "The turn failed." else "Done." }
-        val input = RemoteInput.Builder(NotificationActionReceiver.KEY_TEXT).setLabel("Message Hermes").build()
+        val input = RemoteInput.Builder(NotificationActionReceiver.KEY_TEXT).setLabel("Message Shisha").build()
         val notification = base(CHANNEL_REPLIES, storedSessionId, title)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setContentTitle(if (failed) "Turn failed" else title?.takeIf { it.isNotBlank() } ?: "Hermes replied")
+            .setContentTitle(if (failed) "Turn failed" else title?.takeIf { it.isNotBlank() } ?: "Shisha replied")
             .setContentText(preview)
             .setStyle(NotificationCompat.BigTextStyle().bigText(preview))
             .addAction(

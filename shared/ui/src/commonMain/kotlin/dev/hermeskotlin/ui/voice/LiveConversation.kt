@@ -284,7 +284,7 @@ internal class LiveConversation(
     private suspend fun answer(id: String, prompt: String, context: String) {
         val sent = session.stopAndSubmit(prompt, voiceLive = VoiceLiveTurn(context)).outcome
         if (sent != SendOutcome.Sent) {
-            speak(id, "Sorry, I couldn't reach Hermes for that request.")
+            speak(id, "Sorry, I couldn't reach Shisha for that request.")
             state.update { it.copy(error = session.state.value.error ?: "Couldn't send that to Hermes.") }
             return
         }
@@ -298,8 +298,8 @@ internal class LiveConversation(
             withTimeoutOrNull(TURN_START_MS) { session.state.first { !queued(it) } }
             val chat = session.state.value
             when {
-                queued(chat) -> return send(LiveCommands.thinking(nextId("think"), id, "That request is still waiting in Hermes's queue."))
-                chat.messages.none { it.key == askedKey } -> return send(LiveCommands.thinking(nextId("think"), id, "That request was dropped before Hermes ran it."))
+                queued(chat) -> return send(LiveCommands.thinking(nextId("think"), id, "That request is still waiting in Shisha's queue."))
+                chat.messages.none { it.key == askedKey } -> return send(LiveCommands.thinking(nextId("think"), id, "That request was dropped before Shisha ran it."))
             }
         }
         withTimeoutOrNull(TURN_START_MS) { session.state.first { it.running } }
@@ -326,7 +326,7 @@ internal class LiveConversation(
             if (running != tool) {
                 tool = running
                 state.update { it.copy(working = running) }
-                if (running != null) send(LiveCommands.thinking(nextId("think"), id, "Hermes is working: $running. Not done yet."))
+                if (running != null) send(LiveCommands.thinking(nextId("think"), id, "Shisha is working: $running. Not done yet."))
             }
             replies.forEachIndexed { i, reply ->
                 val before = spoken.getOrNull(i).orEmpty()
@@ -336,7 +336,7 @@ internal class LiveConversation(
                 if (end > from) spokeAny = speak(id, reply.text.substring(from, end)) || spokeAny
                 if (i < spoken.size) spoken[i] = reply.text.substring(0, end) else spoken += reply.text.substring(0, end)
             }
-            if (!chat.running && !spokeAny) send(LiveCommands.thinking(nextId("think"), id, "Hermes finished that request without a spoken result."))
+            if (!chat.running && !spokeAny) send(LiveCommands.thinking(nextId("think"), id, "Shisha finished that request without a spoken result."))
             !chat.running
         }
     }
@@ -346,18 +346,18 @@ internal class LiveConversation(
         val request = chat.inputRequests.firstOrNull { VoiceAnswers.canAsk(it) && it.id !in announced } ?: return
         // From a locked phone an approval isn't taken; it's asked once the phone is unlocked.
         if (request is InputRequest.Approval && lock.locked()) {
-            if (request.id !in heldBack) speakAside("Hermes needs your approval. Unlock the phone, and I'll ask you for it.")
+            if (request.id !in heldBack) speakAside("Shisha needs your approval. Unlock the phone, and I'll ask you for it.")
             heldBack += request.id
             return
         }
         announced += request.id
         // Several questions at once are too many to take by ear.
-        val prompt = askPrompt(request) ?: return speakAside("Hermes has a few questions for you. They're waiting in the chat.")
+        val prompt = askPrompt(request) ?: return speakAside("Shisha has a few questions for you. They're waiting in the chat.")
         if (!steered) send(LiveCommands.instructions(nextId("steer"), ASKING_INSTRUCTIONS))
         steered = true
         heard.clear()
         asking = request
-        speakAside("Hermes needs an answer before it goes on. $prompt")
+        speakAside("Shisha needs an answer before it goes on. $prompt")
     }
 
     /**
@@ -478,7 +478,7 @@ internal class LiveConversation(
             state.update { it.copy(error = session.state.value.error ?: "Couldn't send the answer.") }
             return
         }
-        send(LiveCommands.thinking(nextId("think"), id, "Hermes has the answer and carries on."))
+        send(LiveCommands.thinking(nextId("think"), id, "Shisha has the answer and carries on."))
         // A turn no request of this call started (the one that rang): what it says next goes to the voice too.
         if (delegation?.isActive == true) return
         delegationId = id
@@ -536,9 +536,9 @@ internal class LiveConversation(
         /** Words a voice asking for an approval offers as its answers. */
         val APPROVAL_CUES = setOf("yes", "no", "approve", "allow", "deny")
         val NOT_A_WORD = Regex("[^\\p{L}]+")
-        const val ALREADY_ANSWERED = "Hermes already has that answer."
-        const val WAITING_ELSEWHERE = "Hermes is waiting on an answer in the chat, so it can't take a new request until then."
-        const val ASKING_INSTRUCTIONS = "When Hermes needs an answer from the user (an approval or a question), ask it in your own " +
-            "words with every option it offers, then hand the user's reply over to Hermes as it is, without answering for them."
+        const val ALREADY_ANSWERED = "Shisha already has that answer."
+        const val WAITING_ELSEWHERE = "Shisha is waiting on an answer in the chat, so it can't take a new request until then."
+        const val ASKING_INSTRUCTIONS = "When Shisha needs an answer from the user (an approval or a question), ask it in your own " +
+            "words with every option it offers, then hand the user's reply over to Shisha as it is, without answering for them."
     }
 }

@@ -113,7 +113,7 @@ sealed interface InputRequest {
                 val name = params.string("display_name")?.takeIf { it.isNotBlank() }
                     ?: params.string("backend")?.takeIf { it.isNotBlank() }
                     ?: "your password manager"
-                Secret(id, Secret.Kind.VaultUnlock, "Hermes needs $name unlocked to sign in for you.", envVar = null, command = null)
+                Secret(id, Secret.Kind.VaultUnlock, "Shisha needs $name unlocked to sign in for you.", envVar = null, command = null)
             }
             "vault.code" -> {
                 val site = params.string("site")?.takeIf { it.isNotBlank() }

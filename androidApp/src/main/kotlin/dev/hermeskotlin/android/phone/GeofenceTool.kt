@@ -135,8 +135,8 @@ internal class GeofenceTool(
         if (radius !in MIN_RADIUS..MAX_RADIUS) throw PhoneToolException("radius_m is $MIN_RADIUS to $MAX_RADIUS.")
         if (!places.allowed()) {
             throw PhoneToolException(
-                "Watching places needs precise location all the time, which Herald doesn't have. The user can allow it in " +
-                    "Herald: Settings → Phone tools → Watched places.",
+                "Watching places needs precise location all the time, which Hikyaku doesn't have. The user can allow it in " +
+                    "Hikyaku: Settings → Phone tools → Watched places.",
             )
         }
         if (context.getSystemService(LocationManager::class.java) == null) throw PhoneToolException("The phone has no location service.")
@@ -187,7 +187,7 @@ internal class GeofenceTool(
         val chat = target.title?.takeIf { it.isNotBlank() }?.let { "\"${forQuestion(it)}\"" } ?: "this chat"
         val event = if (place.arriving) "When you arrive at" else "When you leave"
         confirmations.confirm(
-            "$event ${forQuestion(name)} ($where, $radius m), Herald sends this to $chat as you: ${forQuestion(place.sent)}",
+            "$event ${forQuestion(name)} ($where, $radius m), Hikyaku sends this to $chat as you: ${forQuestion(place.sent)}",
             TITLE,
         ) {
             if (!places.add(place)) throw PhoneToolException("The phone already watches ${Geofences.MAX_PLACES} places. Remove one first.")

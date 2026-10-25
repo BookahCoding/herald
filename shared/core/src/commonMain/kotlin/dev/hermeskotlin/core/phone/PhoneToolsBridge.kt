@@ -512,7 +512,7 @@ class PhoneToolsBridge(
         const val TOO_LONG = "The phone took too long."
         const val SWITCHED_OFF = "The user turned this tool off on the phone."
         const val NOT_THIS_PROFILE = "This phone doesn't take calls from that profile."
-        const val UNKNOWN_TOOL = "This version of Herald doesn't have that tool; the user can update Herald."
+        const val UNKNOWN_TOOL = "This version of Hikyaku doesn't have that tool; the user can update Herald."
         private val WAITS_FOR_USER = setOf(State.NotInstalled, State.Outdated)
         private const val MAX_ANSWERED = 200
         private const val ID_BYTES = 16

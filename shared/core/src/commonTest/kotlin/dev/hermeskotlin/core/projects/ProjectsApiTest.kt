@@ -82,15 +82,15 @@ class ProjectsApiTest {
         fake.answer = { call ->
             when (call.method) {
                 "projects.delete" -> """{"projects":[],"active_id":null}"""
-                "projects.create" -> """{"project":{"id":"p_herald","name":"Herald","folders":[]}}"""
+                "projects.create" -> """{"project":{"id":"p_herald","name":"Hikyaku","folders":[]}}"""
                 else -> """{"project":null}"""
             }
         }
         val api = ProjectsApi(fake.start())
 
-        assertEquals("p_herald", api.create("work", "  Herald  ", " /srv/herald "))
+        assertEquals("p_herald", api.create("work", "  Hikyaku  ", " /srv/herald "))
         val create = fake.sent("projects.create").single().params
-        assertEquals("Herald", create["name"]?.jsonPrimitive?.content)
+        assertEquals("Hikyaku", create["name"]?.jsonPrimitive?.content)
         assertEquals("work", create["profile"]?.jsonPrimitive?.content)
         assertEquals(listOf("/srv/herald"), create["folders"]?.jsonArray?.map { it.jsonPrimitive.content })
 

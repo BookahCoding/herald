@@ -67,7 +67,7 @@ internal class SoundTool(private val context: Context, private val confirmations
             throw PhoneToolException("A silent or vibrating ringer can't have a $streamName volume above 0. Set one or the other.")
         }
         if ((dnd != null || ringer != null) && !notifications.isNotificationPolicyAccessGranted) {
-            throw PhoneToolException("Herald isn't allowed to change Do Not Disturb. The user can allow it in Settings → Phone tools.")
+            throw PhoneToolException("Hikyaku isn't allowed to change Do Not Disturb. The user can allow it in Settings → Phone tools.")
         }
         if (dnd == NotificationManager.INTERRUPTION_FILTER_ALL &&
             notifications.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL && !ownsDnd()

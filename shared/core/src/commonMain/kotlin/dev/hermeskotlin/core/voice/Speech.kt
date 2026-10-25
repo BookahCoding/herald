@@ -274,7 +274,7 @@ private val STOP_PHRASES = setOf(
     "stop", "stop listening", "stop it", "stop please", "please stop", "stop stop", "that is all", "that's all",
     "never mind", "nevermind", "end conversation", "end the conversation", "goodbye", "good bye", "bye", "cancel",
 )
-private val ADDRESS_PREFIXES = listOf("hey hermes", "hermes", "okay", "ok", "hey")
+private val ADDRESS_PREFIXES = listOf("hey shisha", "shisha", "hey hermes", "hermes", "okay", "ok", "hey")
 private val PUNCTUATION = Regex("""[\p{P}]+""")
 
 /**

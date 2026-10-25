@@ -103,7 +103,7 @@ class WatchRinger(
         val ring = WatchRing(
             id,
             chat,
-            call.title?.takeIf { it.isNotBlank() } ?: "Hermes",
+            call.title?.takeIf { it.isNotBlank() } ?: "Shisha",
             approval = call.request is InputRequest.Approval,
             agent = call.agent != null,
         )

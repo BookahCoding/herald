@@ -24,7 +24,7 @@ internal class CallMeTool(private val notifications: ChatNotifications, private 
         val target = chats.of(session)
         val chat = target?.storedSessionId ?: session.takeIf { it.isNotBlank() }
         val outcome = notifications.ringForAgent(chat, target?.title, CallReason(reason, details))
-            ?: throw PhoneToolException("Herald may not post notifications on this phone, so it can't ring.")
+            ?: throw PhoneToolException("Hikyaku may not post notifications on this phone, so it can't ring.")
         return buildJsonObject {
             put("status", outcome.status)
             // When it may ring again, for the agent to send a reminder for then.

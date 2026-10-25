@@ -647,7 +647,7 @@ fun SessionsSidebar(
                             }
                             state.savedCopyAt?.takeIf { state.project == null }?.let { savedAt ->
                                 item(key = "saved-copy") {
-                                    ListNotice("${savedCopyLabel(savedAt)}. Hermes can't be reached right now.", action = "Try again", onAction = viewModel::refresh)
+                                    ListNotice("${savedCopyLabel(savedAt)}. Shisha can't be reached right now.", action = "Try again", onAction = viewModel::refresh)
                                 }
                             }
                             when {
@@ -1008,7 +1008,7 @@ private fun MainHeader(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    "Herald",
+                    "Hikyaku",
                     style = Theme[typography][heading].copy(fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.02).em),
                     color = Theme[colors][text],
                     maxLines = 1,

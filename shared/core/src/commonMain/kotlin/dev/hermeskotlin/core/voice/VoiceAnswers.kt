@@ -22,12 +22,12 @@ object VoiceAnswers {
             if (ApprovalChoice.Session in request.choices) add("for this chat")
             if (ApprovalChoice.Always in request.choices) add("always")
         }
-        return "Hermes needs your approval: $what. Say ${ways.joinToString(", ")}, or no."
+        return "Shisha needs your approval: $what. Say ${ways.joinToString(", ")}, or no."
     }
 
     /** What to read aloud for one question of a clarify request. */
     fun questionPrompt(question: ClarifyQuestion): String {
-        val asked = short(question.question.trim()).ifEmpty { "Hermes has a question." }
+        val asked = short(question.question.trim()).ifEmpty { "Shisha has a question." }
         if (question.choices.isEmpty()) return asked
         val choices = question.choices.mapIndexed { i, choice -> "${i + 1}: ${short(choice)}." }.joinToString(" ")
         val pick = if (question.multiSelect) "Say the ones you want" else "Say one"

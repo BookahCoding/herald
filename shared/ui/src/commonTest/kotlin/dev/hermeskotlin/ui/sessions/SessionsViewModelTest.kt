@@ -506,10 +506,10 @@ class SessionsViewModelTest {
         vm.selectProject(project)
         vm.state.first { it.projectSessions != null }
 
-        socket.projects["projects.tree"] = """{"projects":[{"id":"p1","label":"Herald app","path":"/srv/herald","sessionIds":["z"]}]}"""
-        vm.renameProject(project, "Herald app")
-        assertEquals("Herald app", vm.state.value.project?.label)
-        assertEquals("Herald app", vm.state.value.projects.single().label)
+        socket.projects["projects.tree"] = """{"projects":[{"id":"p1","label":"Hikyaku app","path":"/srv/herald","sessionIds":["z"]}]}"""
+        vm.renameProject(project, "Hikyaku app")
+        assertEquals("Hikyaku app", vm.state.value.project?.label)
+        assertEquals("Hikyaku app", vm.state.value.projects.single().label)
 
         socket.projects["projects.tree"] = """{"projects":[{"id":"__no_project__","label":"Home","isNoProject":true,"sessionCount":3}]}"""
         vm.deleteProject(project)

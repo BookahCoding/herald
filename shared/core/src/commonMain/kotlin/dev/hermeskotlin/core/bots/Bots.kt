@@ -49,7 +49,7 @@ data class Bot(
     val label: String
         get() = meta.title
             ?: displayName?.trim()?.takeIf { it.isNotEmpty() }
-            ?: if (name.equals(DEFAULT, ignoreCase = true)) "Hermes" else name.replace(Regex("[-_]+"), " ").trim().titleCase()
+            ?: if (name.equals(DEFAULT, ignoreCase = true)) "Shisha" else name.replace(Regex("[-_]+"), " ").trim().titleCase()
 
     /** Working on something in the background: a worker session heartbeat within the last two minutes. */
     fun isWorking(nowSeconds: Double): Boolean =

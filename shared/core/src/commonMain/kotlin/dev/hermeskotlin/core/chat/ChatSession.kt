@@ -319,7 +319,7 @@ class ChatSession(
                 takeBack()
                 _state.update { state ->
                     state.copy(
-                        error = "Hermes didn't get your message. It's back in the composer.",
+                        error = "Shisha didn't get your message. It's back in the composer.",
                         messages = state.messages.filterNot { it.key == key },
                     )
                 }
@@ -373,7 +373,7 @@ class ChatSession(
             else -> _state.update { state ->
                 state.copy(
                     error = if (mayBeWaiting) {
-                        "Hermes may still be holding it for the running turn. Check again once the turn ends."
+                        "Shisha may still be holding it for the running turn. Check again once the turn ends."
                     } else {
                         "Couldn't read the conversation to check. Try again once connected."
                     },
@@ -483,7 +483,7 @@ class ChatSession(
                     rewound = true
                     return SendOutcome.Sent
                 }
-                _state.update { it.copy(error = "Lost the connection while sending. The chat shows what Hermes has.") }
+                _state.update { it.copy(error = "Lost the connection while sending. The chat shows what Shisha has.") }
                 return SendOutcome.NotSent
             }
             val stale = (e as? RpcException)?.code in STALE_REWIND_CODES

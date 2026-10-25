@@ -352,7 +352,7 @@ private fun Header(status: BarStatus?, onCircle: (() -> Unit)?, onOpenHerald: ()
         AppMark(28.dp, glow = false)
         Column(Modifier.weight(1f)) {
             Text(
-                "Herald",
+                "Hikyaku",
                 style = Theme[typography][body].copy(fontWeight = FontWeight.SemiBold, lineHeight = 19.sp),
                 color = Theme[colors][textColor],
                 maxLines = 1,
@@ -367,7 +367,7 @@ private fun Header(status: BarStatus?, onCircle: (() -> Unit)?, onOpenHerald: ()
                 .border(1.dp, Theme[colors][stroke], shape),
         ) {
             onCircle?.let { BarButton(Lucide.LassoSelect, "Circle part of the screen", onClick = it) }
-            BarButton(Lucide.Maximize2, "Open in Herald", onClick = onOpenHerald)
+            BarButton(Lucide.Maximize2, "Open in Hikyaku", onClick = onOpenHerald)
             BarButton(Lucide.X, "Close", onClick = onClose)
         }
     }
@@ -377,11 +377,11 @@ private fun Header(status: BarStatus?, onCircle: (() -> Unit)?, onOpenHerald: ()
 private fun SignedOut(onOpenHerald: () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(
-            "Sign in to a Hermes gateway in Herald to ask about your screen.",
+            "Sign in to a Hermes gateway in Hikyaku to ask about your screen.",
             style = Theme[typography][body],
             color = Theme[colors][textSecondary],
         )
-        Button("Open Herald", onClick = onOpenHerald, modifier = Modifier.fillMaxWidth())
+        Button("Open Hikyaku", onClick = onOpenHerald, modifier = Modifier.fillMaxWidth())
     }
 }
 
@@ -529,11 +529,11 @@ private fun Composer(
                         when {
                             dictation.recording -> "Listening…"
                             dictation.transcribing -> "Writing down what you said…"
-                            !connected -> "Connecting to Hermes…"
+                            !connected -> "Connecting to Shisha…"
                             circled != null -> "Ask about what you circled"
                             chat.hasConversation -> "Ask a follow-up"
                             includeScreen -> "Ask about your screen"
-                            else -> "Ask Hermes"
+                            else -> "Ask Shisha"
                         },
                         style = Theme[typography][body],
                         color = Theme[colors][textTertiary],
@@ -637,7 +637,7 @@ private fun ScreenUnavailable(onOpenSettings: () -> Unit) {
             UnstyledIcon(Lucide.ScanText, contentDescription = null, tint = Theme[colors][textSecondary], modifier = Modifier.size(18.dp))
         }
         Column(Modifier.weight(1f, fill = false)) {
-            Text("Herald can't see the screen", style = Theme[typography][label].copy(fontWeight = FontWeight.Medium), color = Theme[colors][textColor])
+            Text("Hikyaku can't see the screen", style = Theme[typography][label].copy(fontWeight = FontWeight.Medium), color = Theme[colors][textColor])
             Text(
                 "Turn on \"Use text from screen\"",
                 style = Theme[typography][caption],

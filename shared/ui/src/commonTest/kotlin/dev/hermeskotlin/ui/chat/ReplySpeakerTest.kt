@@ -41,7 +41,7 @@ class ReplySpeakerTest {
     @Test
     fun aBotWithNoNameOfItsOwnIsHermesForTheDefaultProfile() {
         val bare = BotFaces(listOf(Bot(name = "default", isDefault = true)))
-        assertEquals("Hermes", replySpeaker(bare, botName = null, profile = null, launchProfile = "default")?.name)
+        assertEquals("Shisha", replySpeaker(bare, botName = null, profile = null, launchProfile = "default")?.name)
     }
 
     @Test

@@ -219,7 +219,7 @@ private fun Transcript(state: VoiceChatState, lastReply: String?, captions: Bool
     Column(modifier.clipToBounds(), verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.Bottom)) {
         if (!captions) return@Column
         val said = state.caption
-        val bot = LocalReplySpeaker.current?.name ?: "Hermes"
+        val bot = LocalReplySpeaker.current?.name ?: "Shisha"
         val mine = said != null && !state.captionIsVoice
         // While you talk, the reply you're answering stays above; while Hermes talks, its words are the caption.
         if (lastReply != null && (said == null || mine)) {

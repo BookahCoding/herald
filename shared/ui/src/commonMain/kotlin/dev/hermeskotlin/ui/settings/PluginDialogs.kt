@@ -28,8 +28,8 @@ internal fun PluginInstallDialog(visible: Boolean, feature: String, what: String
         visible = visible,
         onDismissRequest = onDismiss,
         title = "Install on the gateway?",
-        message = "$feature needs the herald-push plugin on your gateway. If it isn't there yet, Herald installs " +
-            "version ${PushApi.PLUGIN_VERSION} from $PLUGIN_SOURCE, at the commit this Herald was reviewed with. $what " +
+        message = "$feature needs the herald-push plugin on your gateway. If it isn't there yet, Hikyaku installs " +
+            "version ${PushApi.PLUGIN_VERSION} from $PLUGIN_SOURCE, at the commit this Hikyaku was reviewed with. $what " +
             "Updates are only installed when you choose to, and you can remove the plugin on the gateway at any time.",
         actions = {
             Button("Cancel", onClick = onDismiss, variant = ButtonVariant.Ghost, size = ButtonSize.Small)
@@ -48,9 +48,9 @@ internal fun SuggestionsInstallDialog(visible: Boolean, onDismiss: () -> Unit, o
         visible = visible,
         onDismissRequest = onDismiss,
         title = "Install Next Prompt?",
-        message = "Herald installs Next Prompt ${NextPromptApi.PLUGIN_VERSION}, a community plugin, from " +
-            "${NextPromptApi.PLUGIN_REPO.substringAfter("://")}, at the commit this Herald was reviewed with. After " +
-            "every turn, in Herald, Desktop and the terminal alike, it sends the last few messages of the chat to " +
+        message = "Hikyaku installs Next Prompt ${NextPromptApi.PLUGIN_VERSION}, a community plugin, from " +
+            "${NextPromptApi.PLUGIN_REPO.substringAfter("://")}, at the commit this Hikyaku was reviewed with. After " +
+            "every turn, in Hikyaku, Desktop and the terminal alike, it sends the last few messages of the chat to " +
             "your model (or the one set for its auxiliary task) and keeps the reply it suggests. That's one more " +
             "model call per turn. You can remove it on the gateway at any time.",
         actions = {
@@ -72,10 +72,10 @@ internal fun PluginUpdateRow(update: PluginUpdate, onUpdate: () -> Unit) {
         visible = asking,
         onDismissRequest = { asking = false },
         title = "Update the plugin?",
-        message = "Herald updates older herald-push copies on the gateway and its bot profiles to ${update.available} from " +
-            "$PLUGIN_SOURCE, at the commit this Herald was reviewed with. Disabled copies stay disabled. " +
+        message = "Hikyaku updates older herald-push copies on the gateway and its bot profiles to ${update.available} from " +
+            "$PLUGIN_SOURCE, at the commit this Hikyaku was reviewed with. Disabled copies stay disabled. " +
             "Running chats gain new tools when their agent session reloads." +
-            if (update.needed) " This Herald needs the update." else " Updates are only installed when you choose to.",
+            if (update.needed) " This Hikyaku needs the update." else " Updates are only installed when you choose to.",
         actions = {
             Button("Not now", onClick = { asking = false }, variant = ButtonVariant.Ghost, size = ButtonSize.Small)
             Button(

@@ -41,7 +41,7 @@ class AgentCall(val reason: CallReason) {
  * there for it to answer from; the chat the call is in already has them for Hermes.
  */
 fun CallReason.liveOpener(): String = buildString {
-    append("Hermes called the user, and they just picked up. Say hello and tell them why, briefly: ")
+    append("Shisha called the user, and they just picked up. Say hello and tell them why, briefly: ")
     append(reason.trim())
     details?.trim()?.takeIf { it.isNotEmpty() }?.let {
         append("\n\nBackground, only to answer their questions from, not to read out: ")

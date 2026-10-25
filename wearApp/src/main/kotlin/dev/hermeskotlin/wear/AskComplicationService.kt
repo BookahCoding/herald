@@ -23,7 +23,7 @@ class AskComplicationService : SuspendingComplicationDataSourceService() {
 
     private fun data(type: ComplicationType): ComplicationData? {
         val icon = Icon.createWithResource(this, R.drawable.ic_mic)
-        val description = PlainComplicationText.Builder("Ask Hermes").build()
+        val description = PlainComplicationText.Builder("Ask Shisha").build()
         val tap = PendingIntent.getActivity(this, 0, MainActivity.listenIntent(this), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return when (type) {
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(PlainComplicationText.Builder("Ask").build(), description)

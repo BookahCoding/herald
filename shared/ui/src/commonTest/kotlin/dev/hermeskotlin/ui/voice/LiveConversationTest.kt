@@ -113,7 +113,7 @@ class LiveConversationTest {
             this.sent.update { it + sent }
             // The voice asks what Hermes asks: its words come back as the call's transcript.
             val content = sent["content"]?.jsonPrimitive?.contentOrNull.orEmpty()
-            if (content.startsWith("Hermes needs an answer")) {
+            if (content.startsWith("Shisha needs an answer")) {
                 val at = spokenAt?.let { ""","start_ms":$it,"end_ms":${it + 900}""" }.orEmpty()
                 val asked = asks ?: if ("approval" in content) "Should I go ahead, yes or no?" else "Which one would you like?"
                 receive("""{"type":"session.output_transcript.delta","delta":"$asked"$at}""")
@@ -228,7 +228,7 @@ class LiveConversationTest {
         // A whole sentence goes to the voice while the reply is still streaming.
         call.sent.first { sent -> sent.any { it["type"]?.jsonPrimitive?.contentOrNull == "session.commentary.append" } }
         assertEquals(listOf("It's sunny and 34 degrees."), call.said("session.commentary.append"))
-        assertEquals(listOf("Hermes is working: weather Chicago. Not done yet."), call.said("session.thinking.append"))
+        assertEquals(listOf("Shisha is working: weather Chicago. Not done yet."), call.said("session.thinking.append"))
         assertEquals("weather Chicago", voice.chat.value.working)
         // The chip goes once the tool is done, while the reply still streams.
         socket.event("tool.complete", """{"tool_id":"t1"}""")
@@ -276,7 +276,7 @@ class LiveConversationTest {
         call.sent.first { sent -> sent.any { it["content"]?.jsonPrimitive?.contentOrNull?.contains("Delete the build folder") == true } }
         assertEquals(1, call.said("session.instructions.append").size)
         assertEquals(
-            "Hermes needs an answer before it goes on. Hermes needs your approval: Delete the build folder. Say yes, for this chat, or no.",
+            "Shisha needs an answer before it goes on. Shisha needs your approval: Delete the build folder. Say yes, for this chat, or no.",
             call.said("session.commentary.append").last(),
         )
 
@@ -414,7 +414,7 @@ class LiveConversationTest {
         call.receive("""{"type":"session.input_transcript.delta","delta":", but first tell me what it does.","start_ms":2300,"end_ms":3000}""")
         call.sent.first { sent -> sent.any { it["delegation_id"]?.jsonPrimitive?.contentOrNull == "d2" } }
         assertEquals(
-            "That wasn't clear. Hermes needs your approval: rm -rf build. Say yes, or no.",
+            "That wasn't clear. Shisha needs your approval: rm -rf build. Say yes, or no.",
             call.sent.value.single { it["delegation_id"]?.jsonPrimitive?.contentOrNull == "d2" }["content"]!!.jsonPrimitive.content,
         )
         assertTrue(socket.answers.value.isEmpty())
@@ -464,7 +464,7 @@ class LiveConversationTest {
         call.receive("""{"type":"session.delegation.created","delegation":{"id":"d2"}}""")
         call.sent.first { sent -> sent.any { it["delegation_id"]?.jsonPrimitive?.contentOrNull == "d2" } }
         assertEquals(
-            "That wasn't clear. Hermes needs your approval: rm -rf build. Say yes, or no.",
+            "That wasn't clear. Shisha needs your approval: rm -rf build. Say yes, or no.",
             call.sent.value.single { it["delegation_id"]?.jsonPrimitive?.contentOrNull == "d2" }["content"]!!.jsonPrimitive.content,
         )
         assertTrue(socket.answers.value.isEmpty())
@@ -717,7 +717,7 @@ class LiveConversationTest {
         queued.session.interrupt()
         queued.socket.event("message.complete", """{"text":"Reading the old logs.","status":"interrupted"}""")
         queued.call.sent.first { queued.toD2().isNotEmpty() }
-        assertEquals(listOf("That request was dropped before Hermes ran it."), queued.toD2().map { it["content"]!!.jsonPrimitive.content })
+        assertEquals(listOf("That request was dropped before Shisha ran it."), queued.toD2().map { it["content"]!!.jsonPrimitive.content })
         queued.voice.stopChat()
     }
 

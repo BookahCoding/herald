@@ -77,15 +77,15 @@ private class AndroidPhoneToolAccess(
 ) : PhoneToolAccess {
 
     override fun missing(tool: PhoneTool): String? = when {
-        tool in ASKS && !notificationsOn() -> "Turn on Herald's notifications: changes are asked there."
-        tool == PhoneTool.Sound && !policyAccess() -> "Allow Herald to change Do Not Disturb."
-        tool == PhoneTool.ScreenTime && !usageAccess() -> "Give Herald Usage access, to see which apps you use."
-        tool == PhoneTool.Location && !granted(FINE) && !granted(COARSE) -> "Allow Herald to use this phone's location."
+        tool in ASKS && !notificationsOn() -> "Turn on Hikyaku's notifications: changes are asked there."
+        tool == PhoneTool.Sound && !policyAccess() -> "Allow Hikyaku to change Do Not Disturb."
+        tool == PhoneTool.ScreenTime && !usageAccess() -> "Give Hikyaku Usage access, to see which apps you use."
+        tool == PhoneTool.Location && !granted(FINE) && !granted(COARSE) -> "Allow Hikyaku to use this phone's location."
         tool == PhoneTool.Geofences && !granted(FINE) -> "Allow precise location: Android only watches places with it."
         tool == PhoneTool.Geofences && needsBackground() ->
-            "Allow location all the time: places are watched while Herald is closed. Choose \"Allow all the time\"."
-        tool == PhoneTool.Calendar && (!granted(READ_CALENDAR) || !granted(WRITE_CALENDAR)) -> "Allow Herald to use your calendar."
-        tool == PhoneTool.Contacts && !granted(READ_CONTACTS) -> "Allow Herald to read your contacts."
+            "Allow location all the time: places are watched while Hikyaku is closed. Choose \"Allow all the time\"."
+        tool == PhoneTool.Calendar && (!granted(READ_CALENDAR) || !granted(WRITE_CALENDAR)) -> "Allow Hikyaku to use your calendar."
+        tool == PhoneTool.Contacts && !granted(READ_CONTACTS) -> "Allow Hikyaku to read your contacts."
         // A call from the agent rings as an approval does.
         tool == PhoneTool.CallMe -> ringsMissing()
         tool == PhoneTool.Health -> when {
@@ -95,7 +95,7 @@ private class AndroidPhoneToolAccess(
             health.status != HealthConnectClient.SDK_AVAILABLE && Build.VERSION.SDK_INT in Build.VERSION_CODES.P until Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
                 "Install Health Connect, where the data comes from."
             health.status != HealthConnectClient.SDK_AVAILABLE -> "This phone has no Health Connect."
-            health.granted.none { it in HEALTH_READS } -> "Allow Herald to read steps, sleep or heart rate in Health Connect."
+            health.granted.none { it in HEALTH_READS } -> "Allow Hikyaku to read steps, sleep or heart rate in Health Connect."
             else -> null
         }
         else -> null
@@ -133,12 +133,12 @@ private class AndroidPhoneToolAccess(
 
     override fun optional(tool: PhoneTool): String? = when {
         tool == PhoneTool.Location && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
-            (granted(FINE) || granted(COARSE)) && !granted(BACKGROUND) -> "Also while Herald is closed (optional)"
+            (granted(FINE) || granted(COARSE)) && !granted(BACKGROUND) -> "Also while Hikyaku is closed (optional)"
         // Some of the three allowed: the rest stay one tap away, before reading while closed.
         tool == PhoneTool.Health && health != null && health.granted.any { it in HEALTH_READS } && !health.granted.containsAll(HEALTH_READS) ->
             "Also steps, sleep or heart rate (optional)"
         tool == PhoneTool.Health && health != null && health.background && health.granted.any { it in HEALTH_READS } &&
-            HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND !in health.granted -> "Also while Herald is closed (optional)"
+            HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND !in health.granted -> "Also while Hikyaku is closed (optional)"
         else -> null
     }
 
@@ -152,7 +152,7 @@ private class AndroidPhoneToolAccess(
     }
 
     override fun ringsMissing(): String? = when {
-        !notificationsOn(CALL_CHANNEL) -> "Turn on Herald's notifications: the call rings there."
+        !notificationsOn(CALL_CHANNEL) -> "Turn on Hikyaku's notifications: the call rings there."
         !fullScreen() -> "Allow full-screen notifications, so the call shows over the lock screen."
         else -> null
     }

@@ -17,7 +17,7 @@ internal fun transcriptMarkdown(title: String, messages: List<ChatMessage>): Str
             }
             is ChatMessage.Assistant -> if (message.text.isNotBlank()) {
                 appendLine()
-                appendLine("## Hermes")
+                appendLine("## Shisha")
                 appendLine()
                 appendLine(message.text.trim())
             }

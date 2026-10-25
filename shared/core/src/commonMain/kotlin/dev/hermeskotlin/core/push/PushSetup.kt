@@ -117,7 +117,7 @@ class PushSetup(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            "Saved on this phone. The gateway didn't take it (${e.message}); it is sent again when Herald next connects."
+            "Saved on this phone. The gateway didn't take it (${e.message}); it is sent again when Hikyaku next connects."
         }
     }
 

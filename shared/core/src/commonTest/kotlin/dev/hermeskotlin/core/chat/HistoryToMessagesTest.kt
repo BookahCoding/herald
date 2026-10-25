@@ -33,7 +33,7 @@ class HistoryToMessagesTest {
                 SessionMessage(id = 3, role = "tool", content = JsonPrimitive("a.txt"), toolCallId = "c-terminal"),
                 SessionMessage(id = 4, role = "assistant", content = JsonPrimitive("There is one file.")),
                 SessionMessage(id = 5, role = "user", content = JsonPrimitive("summary"), displayKind = "hidden"),
-                SessionMessage(id = 6, role = "system", content = JsonPrimitive("You are Hermes")),
+                SessionMessage(id = 6, role = "system", content = JsonPrimitive("You are Shisha")),
             ),
         )
 
