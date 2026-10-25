@@ -75,6 +75,12 @@ file with the lists can't be read, every phone gets `default` only.
 `test` sends the phone one synthetic Bot Chat message for a `profile` through the same check, answering
 `{"allowed": …, "sent": …}`.
 
+Phone tools follow the same list. The plugin routes a tool call, a `phone_call_me` ring included, only to a phone that
+takes calls from the profile whose agent makes it, and does not offer the tools to an agent whose profile no phone
+takes. A phone's phone-tools report carries its list (`profiles`); if it has none, the list of the push registration
+it is linked to (`push_id`) applies. The call's request and its `phone_call` / `phone_request` push name the profile
+(`bot`), and the phone refuses or does not ring for one that is not on its list.
+
 The phone keeps the same list per gateway and checks it again when a push or a notification arrives, by any path,
 so a plugin that doesn't limit profiles, or hasn't been given the list yet, still can't notify for one.
 

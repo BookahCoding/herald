@@ -100,6 +100,8 @@ data class PhoneRequest(
      * measured against it, never against the phone's own clock, which may be off.
      */
     @Transient val gatewayNow: Long = 0,
+    /** The profile whose agent made the call (plugin 0.6.0 on); null when the plugin doesn't say. */
+    val profile: String? = null,
 )
 
 /** What the plugin answers to `/herald-push phone …`. */
@@ -409,13 +411,22 @@ class PushApi(
      * Tells the gateway which phone tools this phone has on; returns the ones it will offer, or null without the
      * plugin. [key] is this phone's secret: the first report binds the id to it, and every phone call needs it.
      */
-    suspend fun phoneTools(deviceId: String, key: String, name: String, tools: List<String>, pushId: String?): List<String>? {
+    suspend fun phoneTools(
+        deviceId: String,
+        key: String,
+        name: String,
+        tools: List<String>,
+        pushId: String?,
+        /** The profiles whose agents may call this phone; null leaves the list the gateway has (plugins before 0.6.0 keep none). */
+        profiles: List<String>? = null,
+    ): List<String>? {
         val body = buildJsonObject {
             put("device_id", deviceId)
             put("key", key)
             put("name", name)
             // The push registration a call nudges; only ever a nudge, the call itself comes over this socket.
             if (pushId != null) put("push_id", pushId)
+            if (profiles != null) put("profiles", JsonArray(profiles.map(::JsonPrimitive)))
             put("tools", JsonArray(tools.map(::JsonPrimitive)))
         }
         val reply = output("phone tools $body")?.let(::phoneReply) ?: return null
@@ -514,7 +525,7 @@ class PushApi(
         const val PLUGIN_REPO = "https://github.com/BookahCoding/hermes-herald-push"
 
         /** The plugin commit this Herald was built and reviewed against. */
-        const val PLUGIN_REF = "baa29effccc31757d71faa6f266e5c26176207d0"
+        const val PLUGIN_REF = "922162b4e0356a299f506a2f64d06ca66f1dc2d1"
 
         /** The version at [PLUGIN_REF]: an older copy on the gateway is offered this as an update. */
         const val PLUGIN_VERSION = "0.6.0"

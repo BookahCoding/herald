@@ -7,6 +7,7 @@ import dev.hermeskotlin.core.gateway.GatewayRepository
 import dev.hermeskotlin.core.network.HermesJson
 import dev.hermeskotlin.core.phone.PhoneToolsStatus.State
 import dev.hermeskotlin.core.push.KnownPhone
+import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.PhoneRequest
 import dev.hermeskotlin.core.push.PluginState
 import dev.hermeskotlin.core.push.PushApi
@@ -61,6 +62,8 @@ class PhoneToolsBridge(
     private val connection: GatewayConnection,
     private val gateways: GatewayRepository,
     private val settings: SettingsStore,
+    /** Which profiles' agents may call this phone: what it is told to the gateway, and checked on each call and ring. */
+    private val profiles: NotificationProfiles,
     private val runner: PhoneToolRunner,
     private val scope: CoroutineScope,
     private val deviceName: () -> String,
@@ -111,7 +114,9 @@ class PhoneToolsBridge(
             val enabled = settings.settings.filterNotNull().map { it.enabledPhoneTools() }.distinctUntilChanged()
             // A plugin update from Notifications anywhere: look again, so the page doesn't still offer it. Turned on
             // (or off) after the tools were reported: report again, so a call rings through the push off the network.
-            combine(client, enabled, setUps, api.updates, api.registrations) { c, on, setUp, _, _ -> Triple(c, on, setUp) }.collectLatest { (c, on, setUp) ->
+            // The list of profiles that may call this phone changing is told again too.
+            val changes = combine(api.updates, api.registrations, profiles.lists) { _, _, _ -> }
+            combine(client, enabled, setUps, changes) { c, on, setUp, _ -> Triple(c, on, setUp) }.collectLatest { (c, on, setUp) ->
                 refuseSwitchedOff(on)
                 serve(c, on, setUp)
             }
@@ -291,7 +296,8 @@ class PhoneToolsBridge(
             canListPhones = ready.info.versionAtLeast(PushApi.PHONE_LIST_PLUGIN_VERSION)
             if (!canListPhones) _phones.value = emptyList()
             val me = identity()
-            val offered = api.phoneTools(me.id, me.key, deviceName(), on.map { it.id }.sorted(), pushId()) ?: return false
+            val gatewayKey = gateways.current()?.gatewayUrl?.value
+            val offered = api.phoneTools(me.id, me.key, deviceName(), on.map { it.id }.sorted(), pushId(), profiles.listFor(gatewayKey)) ?: return false
             store.put(reportedKey(), if (on.isEmpty()) "0" else "1")
             val missing = on.filter { it.id !in offered }
             _status.value = PhoneToolsStatus(
@@ -336,6 +342,8 @@ class PhoneToolsBridge(
      */
     fun ring(message: PushMessage) {
         val id = message.requestId?.takeIf { REQUEST_ID.matches(it) } ?: return
+        // From a profile that may not call this phone: it does not ring, whatever the gateway sent.
+        if (!profiles.allowsHere(message.bot)) return
         val reason = message.reason?.takeIf { it.isNotBlank() } ?: return
         val expires = message.expires ?: return
         val args = buildJsonObject {
@@ -374,6 +382,9 @@ class PhoneToolsBridge(
             null to UNKNOWN_TOOL
         } else if (tool !in settings.settings.value?.enabledPhoneTools().orEmpty()) {
             null to SWITCHED_OFF
+        } else if (!profiles.allowsHere(request.profile)) {
+            // The agent that asked is in a profile this phone doesn't take calls from: nothing runs, nothing is asked.
+            null to NOT_THIS_PROFILE
         } else if (limit <= 0) {
             // Too late to ask or do anything the agent would still hear of: nothing runs.
             null to TOO_LONG
@@ -391,7 +402,7 @@ class PhoneToolsBridge(
                 null to "The phone couldn't do it (${e::class.simpleName})."
             }
         }
-        if (tool != null && error != SWITCHED_OFF) _recent.update { (listOf(PhoneToolUse(tool, now(), error)) + it).take(MAX_RECENT) }
+        if (tool != null && error != SWITCHED_OFF && error != NOT_THIS_PROFILE) _recent.update { (listOf(PhoneToolUse(tool, now(), error)) + it).take(MAX_RECENT) }
         // Out of the running list before answering: switching the tool off now can't send a second answer.
         if (!finish(request.id)) return
         // Until the gateway stops waiting: a call declined off the network gets there once the way back is up.
@@ -500,6 +511,7 @@ class PhoneToolsBridge(
         const val MAX_RECENT = 20
         const val TOO_LONG = "The phone took too long."
         const val SWITCHED_OFF = "The user turned this tool off on the phone."
+        const val NOT_THIS_PROFILE = "This phone doesn't take calls from that profile."
         const val UNKNOWN_TOOL = "This version of Herald doesn't have that tool; the user can update Herald."
         private val WAITS_FOR_USER = setOf(State.NotInstalled, State.Outdated)
         private const val MAX_ANSWERED = 200

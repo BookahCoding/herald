@@ -10,6 +10,8 @@ import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.storage.KeyValueStore
 import dev.hermeskotlin.core.network.HermesJson
 import dev.hermeskotlin.core.network.createHttpClient
+import dev.hermeskotlin.core.profiles.ProfileStore
+import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.PROFILE_ALLOWLIST
 import dev.hermeskotlin.core.push.PluginUpdate
 import dev.hermeskotlin.core.push.PushPluginReply
@@ -93,8 +95,9 @@ class PhoneToolsBridgeTest {
         /** The gateway's clock, epoch seconds, told with `pending`; null as a plugin before 0.3.3, which doesn't say it. */
         var now: Long? = GATEWAY_NOW
 
-        fun call(id: String, tool: String, args: JsonObject = JsonObject(emptyMap()), expires: Long = GATEWAY_NOW + 120) {
+        fun call(id: String, tool: String, args: JsonObject = JsonObject(emptyMap()), expires: Long = GATEWAY_NOW + 120, profile: String? = null) {
             waiting += buildJsonObject {
+                if (profile != null) put("profile", profile)
                 put("id", id)
                 put("tool", tool)
                 put("args", args)
@@ -248,7 +251,14 @@ class PhoneToolsBridgeTest {
         }
     }
 
-    private class Setup(val bridge: PhoneToolsBridge, val connection: GatewayConnection, val settings: SettingsStore, val store: KeyValueStore, val api: PushApi)
+    private class Setup(
+        val bridge: PhoneToolsBridge,
+        val connection: GatewayConnection,
+        val settings: SettingsStore,
+        val store: KeyValueStore,
+        val api: PushApi,
+        val profiles: NotificationProfiles,
+    )
 
     private val transports = ArrayDeque<FakeTransport>()
 
@@ -268,11 +278,12 @@ class PhoneToolsBridgeTest {
         settings.update { it.copy(phoneTools = all, phoneToolsOn = on.map { t -> t.id }, pushAnywhere = pushAnywhere) }
         val gateways = GatewayRepository(InMemoryKeyValueStore()).apply { save(SavedGateway(URL)) }
         val api = PushApi(connection)
+        val profiles = NotificationProfiles(InMemoryKeyValueStore(), gateways, ProfileStore(InMemoryKeyValueStore()), backgroundScope)
         val bridge = PhoneToolsBridge(
-            api, keys, store, connection, gateways, settings, runner, backgroundScope, { "Pixel" }, { currentTime },
+            api, keys, store, connection, gateways, settings, profiles, runner, backgroundScope, { "Pixel" }, { currentTime },
         )
         bridge.start()
-        return Setup(bridge, connection, settings, store, api)
+        return Setup(bridge, connection, settings, store, api, profiles)
     }
 
     private suspend fun TestScope.connect(s: Setup, plugin: Plugin): FakeTransport {
@@ -549,8 +560,9 @@ class PhoneToolsBridgeTest {
         assertEquals(PhoneToolsStatus.State.On, s.bridge.status.value.state)
     }
 
-    private fun ringPush(id: String, reason: String? = "The deploy failed", expires: Long = GATEWAY_NOW + 75, ts: Long = GATEWAY_NOW) = PushMessage(
+    private fun ringPush(id: String, reason: String? = "The deploy failed", expires: Long = GATEWAY_NOW + 75, ts: Long = GATEWAY_NOW, bot: String? = null) = PushMessage(
         id = "p-$id",
+        bot = bot,
         ts = ts,
         type = PushMessage.PHONE_CALL,
         session = "chat-1",
@@ -570,6 +582,74 @@ class PhoneToolsBridgeTest {
             ringing.await()
             return buildJsonObject { put("status", "declined") }
         }
+    }
+
+    @Test
+    fun theReportCarriesTheProfilesWhoseAgentsMayCallThisPhone() = runTest {
+        val s = setup(Runner(), on = listOf(PhoneTool.Battery))
+        val plugin = Plugin()
+        connect(s, plugin)
+        until { plugin.reportBodies.isNotEmpty() }
+        assertEquals(listOf("default"), plugin.reportBodies.last()["profiles"]!!.jsonArray.map { it.jsonPrimitive.content })
+    }
+
+    @Test
+    fun aChangedListIsReportedToTheGatewayAgain() = runTest {
+        val s = setup(Runner(), on = listOf(PhoneTool.Battery))
+        val plugin = Plugin()
+        connect(s, plugin)
+        until { plugin.reportBodies.isNotEmpty() }
+        val before = plugin.reportBodies.size
+        s.profiles.set(URL, listOf("default", "alice"))
+        until { plugin.reportBodies.size > before }
+        assertEquals(listOf("alice", "default"), plugin.reportBodies.last()["profiles"]!!.jsonArray.map { it.jsonPrimitive.content })
+    }
+
+    @Test
+    fun aCallFromAProfileNotOnTheListIsRefusedAndNeverRuns() = runTest {
+        val runner = Runner()
+        val s = setup(runner, on = listOf(PhoneTool.Battery))
+        val plugin = Plugin()
+        connect(s, plugin)
+        until { plugin.reports.isNotEmpty() }
+        val froebel = "e".repeat(32)
+        val mine = "f".repeat(32)
+        plugin.call(froebel, PhoneTool.Battery.id, profile = "froebel")
+        plugin.call(mine, PhoneTool.Battery.id, profile = "default")
+        s.bridge.wake()
+        until { plugin.answers.containsKey(froebel) && plugin.answers.containsKey(mine) }
+        assertEquals(PhoneToolsBridge.NOT_THIS_PROFILE, plugin.error(froebel))
+        assertNull(plugin.error(mine))
+        // Only the default profile's call was run, and the refused one isn't listed among what the agent used.
+        assertEquals(listOf(PhoneTool.Battery), runner.runs)
+        assertEquals(1, s.bridge.recent.value.size)
+    }
+
+    @Test
+    fun aProfileAddedToTheListMayCallAtOnce() = runTest {
+        val runner = Runner()
+        val s = setup(runner, on = listOf(PhoneTool.Battery))
+        val plugin = Plugin()
+        connect(s, plugin)
+        until { plugin.reports.isNotEmpty() }
+        s.profiles.set(URL, listOf("default", "alice"))
+        plugin.call("e".repeat(32), PhoneTool.Battery.id, profile = "alice")
+        s.bridge.wake()
+        until { plugin.answers.containsKey("e".repeat(32)) }
+        assertNull(plugin.error("e".repeat(32)))
+    }
+
+    @Test
+    fun aRingPushFromAProfileNotOnTheListDoesNotRingEvenIfTheGatewaySentIt() = runTest {
+        val runner = CallRunner()
+        val s = setup(runner, on = listOf(PhoneTool.CallMe))
+        s.bridge.ring(ringPush("e".repeat(32), bot = "froebel"))
+        delay(1_000)
+        assertTrue(runner.calls.isEmpty(), "it rang for a profile this phone doesn't take calls from")
+        // The same push for a profile on the list rings, and so does one that names none (the default).
+        s.bridge.ring(ringPush("f".repeat(32), bot = "default"))
+        until { runner.calls.isNotEmpty() }
+        assertEquals(1, runner.calls.size)
     }
 
     @Test
