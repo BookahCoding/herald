@@ -49,83 +49,130 @@ internal object Palette {
     val LightWarning = Color(0xFFB76E00)
 }
 
-internal fun lightColors(accentColors: AccentColors) = mapOf(
-    background to Palette.LightBg,
-    surface to Palette.LightSurface,
-    surface2 to Palette.LightSurface2,
-    surface3 to Palette.LightSurface3,
-    well to Palette.LightWell,
-    thumb to Palette.LightSurface,
-    surfaceElevated to Palette.LightSurface,
-    input to Palette.LightSurface,
-    sidebar to Palette.LightSurface,
+/**
+ * The neutral roles one scheme is drawn with: the grounds, the text steps, the hairlines, the inverse pill and the
+ * three signal colors. The accent presets share the graphite and off-white sets below; a theme with a look of its
+ * own (see [AccentPalette.Ukiyoe]) brings its own through [AccentColors.neutrals].
+ */
+class Neutrals(
+    val bg: Color,
+    val surface: Color,
+    val surface2: Color,
+    val surface3: Color,
+    val well: Color,
+    /** One step above surface 3, whatever the ground. */
+    val thumb: Color,
+    /** Sheets and menus. */
+    val elevated: Color,
+    val line: Color,
+    val lineStrong: Color,
+    val text: Color,
+    val text2: Color,
+    val text4: Color,
+    val text5: Color,
+    val inverse: Color,
+    val onInverse: Color,
+    val danger: Color,
+    val success: Color,
+    val warning: Color,
+) {
+    internal companion object {
+        val Light = Neutrals(
+            bg = Palette.LightBg, surface = Palette.LightSurface, surface2 = Palette.LightSurface2,
+            surface3 = Palette.LightSurface3, well = Palette.LightWell, thumb = Palette.LightSurface,
+            elevated = Palette.LightSurface, line = Palette.LightLine, lineStrong = Palette.LightLineStrong,
+            text = Palette.LightText, text2 = Palette.LightText2, text4 = Palette.LightText4, text5 = Palette.LightText5,
+            inverse = Palette.LightText, onInverse = Color.White,
+            danger = Palette.LightDanger, success = Palette.LightSuccess, warning = Palette.LightWarning,
+        )
+
+        val Dark = Neutrals(
+            bg = Palette.Bg, surface = Palette.Surface, surface2 = Palette.Surface2,
+            surface3 = Palette.Surface3, well = Palette.Well, thumb = Palette.Thumb,
+            elevated = Palette.Sheet, line = Palette.Line, lineStrong = Palette.LineStrong,
+            text = Palette.Text, text2 = Palette.Text2, text4 = Palette.Text4, text5 = Palette.Text5,
+            inverse = Palette.Text, onInverse = Palette.Bg,
+            danger = Palette.Danger, success = Palette.Success, warning = Palette.Warning,
+        )
+
+        /** Pure black keeps the graphite steps, each pulled a little toward black. */
+        val Black = Neutrals(
+            bg = Color.Black, surface = Palette.BlackSurface, surface2 = Palette.BlackSurface2,
+            surface3 = Palette.BlackSurface3, well = Palette.BlackWell, thumb = Palette.Thumb,
+            elevated = Palette.BlackSheet, line = Palette.Line, lineStrong = Palette.LineStrong,
+            text = Palette.Text, text2 = Palette.Text2, text4 = Palette.Text4, text5 = Palette.Text5,
+            inverse = Palette.Text, onInverse = Palette.Bg,
+            danger = Palette.Danger, success = Palette.Success, warning = Palette.Warning,
+        )
+    }
+}
+
+internal fun lightColors(accentColors: AccentColors, n: Neutrals = accentColors.neutrals ?: Neutrals.Light) = mapOf(
+    background to n.bg,
+    surface to n.surface,
+    surface2 to n.surface2,
+    surface3 to n.surface3,
+    well to n.well,
+    thumb to n.thumb,
+    surfaceElevated to n.elevated,
+    input to n.surface,
+    sidebar to n.surface,
     userBubble to accentColors.bubble,
     userBubbleStroke to accentColors.bubbleStroke,
     onUserBubble to accentColors.onAccent,
-    text to Palette.LightText,
-    textSecondary to Palette.LightText2,
-    textTertiary to Palette.LightText4,
-    textMuted to Palette.LightText5,
+    text to n.text,
+    textSecondary to n.text2,
+    textTertiary to n.text4,
+    textMuted to n.text5,
     accent to accentColors.accent,
     onAccent to accentColors.onAccent,
     accentText to accentColors.text,
     accentSoft to accentColors.soft,
-    inverse to Palette.LightText,
-    onInverse to Color.White,
-    stroke to Palette.LightLine,
-    strokeStrong to Palette.LightLineStrong,
-    danger to Palette.LightDanger,
-    success to Palette.LightSuccess,
-    warning to Palette.LightWarning,
-    dangerSoft to Palette.LightDanger.copy(alpha = 0.09f),
-    successSoft to Palette.LightSuccess.copy(alpha = 0.10f),
-    warningSoft to Palette.LightWarning.copy(alpha = 0.10f),
+    inverse to n.inverse,
+    onInverse to n.onInverse,
+    stroke to n.line,
+    strokeStrong to n.lineStrong,
+    danger to n.danger,
+    success to n.success,
+    warning to n.warning,
+    dangerSoft to n.danger.copy(alpha = 0.09f),
+    successSoft to n.success.copy(alpha = 0.10f),
+    warningSoft to n.warning.copy(alpha = 0.10f),
 )
 
 /** Pure black: the dark roles on a true black ground, with each graphite step pulled toward black. */
-internal fun pureBlackColors(accentColors: AccentColors) = darkColors(
-    accentColors, Color.Black, Palette.BlackSurface, Palette.BlackSurface2, Palette.BlackSurface3, Palette.BlackWell, Palette.BlackSheet,
-)
+internal fun pureBlackColors(accentColors: AccentColors) = darkColors(accentColors, accentColors.neutrals ?: Neutrals.Black)
 
 /** Dark and pure black share every role but the grounds they sit on. */
-internal fun darkColors(
-    accentColors: AccentColors,
-    bg: Color = Palette.Bg,
-    surfaceColor: Color = Palette.Surface,
-    surface2Color: Color = Palette.Surface2,
-    surface3Color: Color = Palette.Surface3,
-    wellColor: Color = Palette.Well,
-    sheet: Color = Palette.Sheet,
-) = mapOf(
-    background to bg,
-    surface to surfaceColor,
-    surface2 to surface2Color,
-    surface3 to surface3Color,
-    well to wellColor,
-    // One step above surface 3, whatever the ground.
-    thumb to Palette.Thumb,
-    surfaceElevated to sheet,
-    input to surfaceColor,
-    sidebar to surfaceColor,
+internal fun darkColors(accentColors: AccentColors, n: Neutrals = accentColors.neutrals ?: Neutrals.Dark) = mapOf(
+    background to n.bg,
+    surface to n.surface,
+    surface2 to n.surface2,
+    surface3 to n.surface3,
+    well to n.well,
+    thumb to n.thumb,
+    surfaceElevated to n.elevated,
+    input to n.surface,
+    sidebar to n.surface,
     userBubble to accentColors.bubble,
     userBubbleStroke to accentColors.bubbleStroke,
     onUserBubble to accentColors.onAccent,
-    text to Palette.Text,
-    textSecondary to Palette.Text2,
-    textTertiary to Palette.Text4,
-    textMuted to Palette.Text5,
+    text to n.text,
+    textSecondary to n.text2,
+    textTertiary to n.text4,
+    textMuted to n.text5,
     accent to accentColors.accent,
     onAccent to accentColors.onAccent,
     accentText to accentColors.text,
     accentSoft to accentColors.soft,
-    inverse to Palette.Text,
-    onInverse to Palette.Bg,
-    stroke to Palette.Line,
-    strokeStrong to Palette.LineStrong,
-    danger to Palette.Danger,
-    success to Palette.Success,
-    warning to Palette.Warning,
-    dangerSoft to Palette.Danger.copy(alpha = 0.14f),
-    successSoft to Palette.Success.copy(alpha = 0.13f),
-    warningSoft to Palette.Warning.copy(alpha = 0.13f),
+    inverse to n.inverse,
+    onInverse to n.onInverse,
+    stroke to n.line,
+    strokeStrong to n.lineStrong,
+    danger to n.danger,
+    success to n.success,
+    warning to n.warning,
+    dangerSoft to n.danger.copy(alpha = 0.14f),
+    successSoft to n.success.copy(alpha = 0.13f),
+    warningSoft to n.warning.copy(alpha = 0.13f),
 )
