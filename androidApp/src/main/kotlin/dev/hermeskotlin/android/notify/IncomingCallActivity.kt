@@ -68,17 +68,23 @@ class IncomingCallActivity : ComponentActivity(), OutOfSight {
     /** Unlocks first: the chat it opens answers for whoever holds the phone. */
     private fun answer(requestId: String) {
         val open = notifications.answer(requestId) ?: return finish()
-        // Hermes on the line: the call screen unlocks and picks up itself.
-        if (open.component?.className == PhoneCallActivity::class.java.name) {
-            startActivity(open)
-            return finish()
+        // Hermes on the line: the call screen picks up itself, once this screen has unlocked the phone. Asked from
+        // the call screen's own onCreate the unlock can fail before that window has focus, and it hung up unseen.
+        val onTheLine = open.component?.className == PhoneCallActivity::class.java.name
+        val proceed = {
+            if (onTheLine) {
+                startActivity(open)
+                finish()
+            } else {
+                open(requestId, open)
+            }
         }
         val keyguard = getSystemService(KeyguardManager::class.java)
-        if (keyguard?.isKeyguardLocked != true) return open(requestId, open)
+        if (keyguard?.isKeyguardLocked != true) return proceed()
         keyguard.requestDismissKeyguard(
             this,
             object : KeyguardManager.KeyguardDismissCallback() {
-                override fun onDismissSucceeded() = open(requestId, open)
+                override fun onDismissSucceeded() = proceed()
             },
         )
     }

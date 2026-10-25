@@ -88,7 +88,7 @@ class PhoneCallActivity : ComponentActivity() {
             object : KeyguardManager.KeyguardDismissCallback() {
                 override fun onDismissSucceeded() = withMicrophone()
                 override fun onDismissCancelled() = leave(null)
-                override fun onDismissError() = leave(null)
+                override fun onDismissError() = leave("Herald couldn't unlock the phone for the call. The question is in the chat.")
             },
         )
     }
