@@ -2015,7 +2015,7 @@ private fun ConfirmChange(
             MessageChange.Regenerate ->
                 "This will discard $later, here and on Shisha, and send the prompt again."
             MessageChange.Edit ->
-                "Sending the edit will discard $later, here and on Hermes. Nothing changes until you send it."
+                "Sending the edit will discard $later, here and on Shisha. Nothing changes until you send it."
             else ->
                 "Takes your last message and Shisha's reply to it off this chat and puts the message back in the composer. " +
                     "No task starts until you send it again."

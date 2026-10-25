@@ -604,7 +604,7 @@ internal fun SettingsView(
                     Divider()
                     SwitchRow(
                         title = "Notify for other chats while Hikyaku is open",
-                        detail = "Replies and requests in chats other than the one on screen notify even while you're in Herald.",
+                        detail = "Replies and requests in chats other than the one on screen notify even while you're in Hikyaku.",
                         checked = settings.notifyOtherChatsInApp,
                         onCheckedChange = { on -> onUpdate { it.copy(notifyOtherChatsInApp = on) } },
                         icon = Lucide.BellRing,

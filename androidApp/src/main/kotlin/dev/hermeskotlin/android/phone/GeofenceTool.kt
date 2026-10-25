@@ -142,7 +142,7 @@ internal class GeofenceTool(
         if (context.getSystemService(LocationManager::class.java) == null) throw PhoneToolException("The phone has no location service.")
         val target = chats.of(session) ?: throw PhoneToolException(
             "A place can only be watched for a chat open on this phone, so its message has somewhere to go. Ask the user " +
-                "to add it from a chat in Herald.",
+                "to add it from a chat in Hikyaku.",
         )
         val lat = args.double("latitude")
         val lon = args.double("longitude")

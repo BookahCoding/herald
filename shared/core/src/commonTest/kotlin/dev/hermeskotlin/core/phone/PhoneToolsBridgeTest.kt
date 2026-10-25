@@ -279,6 +279,8 @@ class PhoneToolsBridgeTest {
         val gateways = GatewayRepository(InMemoryKeyValueStore()).apply { save(SavedGateway(URL)) }
         val api = PushApi(connection)
         val profiles = NotificationProfiles(InMemoryKeyValueStore(), gateways, ProfileStore(InMemoryKeyValueStore()), backgroundScope)
+        // The bridge starts over when the lists first load, so it starts after they have: one run, not a restart.
+        profiles.lists.filterNotNull().first()
         val bridge = PhoneToolsBridge(
             api, keys, store, connection, gateways, settings, profiles, runner, backgroundScope, { "Pixel" }, { currentTime },
         )

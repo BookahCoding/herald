@@ -514,7 +514,7 @@ class WatchRelay(
 
     companion object {
         const val SIGNED_OUT = "Sign in to Hikyaku on your phone first."
-        const val ON_ANOTHER_CALL = "You're already on a call with Hermes. Hang up there first."
+        const val ON_ANOTHER_CALL = "You're already on a call with Shisha. Hang up there first."
         const val NOTHING_HEARD = "I didn't catch that."
         private const val CHAT_LIST_SIZE = 15
         private const val MAX_TITLE = 80

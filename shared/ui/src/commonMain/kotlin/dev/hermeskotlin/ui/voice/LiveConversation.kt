@@ -285,7 +285,7 @@ internal class LiveConversation(
         val sent = session.stopAndSubmit(prompt, voiceLive = VoiceLiveTurn(context)).outcome
         if (sent != SendOutcome.Sent) {
             speak(id, "Sorry, I couldn't reach Shisha for that request.")
-            state.update { it.copy(error = session.state.value.error ?: "Couldn't send that to Hermes.") }
+            state.update { it.copy(error = session.state.value.error ?: "Couldn't send that to Shisha.") }
             return
         }
         // The prompt just sent. A history reload swaps its key for its stored row's; then it's the last prompt.
@@ -474,7 +474,7 @@ internal class LiveConversation(
         sent()
         if (!answered) {
             // Still asking: what's said next is another go at the answer, not a request that stops the turn.
-            send(LiveCommands.commentary(nextId("say"), id, "The answer couldn't reach Hermes. Ask the user to say it again."))
+            send(LiveCommands.commentary(nextId("say"), id, "The answer couldn't reach Shisha. Ask the user to say it again."))
             state.update { it.copy(error = session.state.value.error ?: "Couldn't send the answer.") }
             return
         }

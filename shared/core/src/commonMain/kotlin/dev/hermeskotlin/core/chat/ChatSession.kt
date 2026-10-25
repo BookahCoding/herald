@@ -1829,7 +1829,7 @@ class ChatSession(
         // A saved copy says nothing of the rows before it; the gateway's transcript is needed first.
         if (_state.value.savedCopyAt != null) loadHistory()
         if (_state.value.savedCopyAt != null) {
-            _state.update { it.copy(error = "Couldn't read the whole conversation from Hermes. ${it.historyError.orEmpty()}".trim()) }
+            _state.update { it.copy(error = "Couldn't read the whole conversation from Shisha. ${it.historyError.orEmpty()}".trim()) }
             return false
         }
         repeat(MAX_HISTORY_PAGES) {

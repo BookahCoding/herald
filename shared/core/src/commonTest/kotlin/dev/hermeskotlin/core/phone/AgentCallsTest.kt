@@ -25,7 +25,7 @@ class AgentCallsTest {
         assertTrue(opener.contains("tell them why, briefly: The deploy failed."))
         assertTrue(opener.contains("not to read out: Build 42 broke on the tests."))
         assertFalse(CallReason("Wake up", " ").liveOpener().contains("Background"))
-        assertEquals("Hi, it's Hermes. Wake up", CallReason(" Wake up ").spokenOpener())
+        assertEquals("Hi, it's Shisha. Wake up", CallReason(" Wake up ").spokenOpener())
     }
 
     @Test

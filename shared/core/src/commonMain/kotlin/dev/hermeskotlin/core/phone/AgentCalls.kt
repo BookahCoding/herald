@@ -50,7 +50,7 @@ fun CallReason.liveOpener(): String = buildString {
 }
 
 /** What the chained voice reads aloud first on a call the agent placed. */
-fun CallReason.spokenOpener(): String = "Hi, it's Hermes. ${reason.trim()}"
+fun CallReason.spokenOpener(): String = "Hi, it's Shisha. ${reason.trim()}"
 
 /**
  * The agent's calls picked up on the watch, by the chat each rings for, until the call the watch starts there takes
