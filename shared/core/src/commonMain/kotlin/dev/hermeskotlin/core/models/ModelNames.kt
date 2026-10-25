@@ -28,7 +28,10 @@ private val PROVIDER_NAMES = mapOf(
     "xai-oauth" to "xAI Grok",
 )
 
-private fun String.titleCase(): String = Regex("""\b[a-z]""").replace(this) { it.value.uppercase() }.trim()
+/** Capitalises each word, but not what follows a colon: OpenRouter's `:free` stays `:free`. */
+private fun String.titleCase(): String =
+    Regex("""\b[a-z]""").replace(this) { it.value.uppercase() }.trim()
+        .let { Regex(""":([A-Z])""").replace(it) { m -> ":" + m.groupValues[1].lowercase() } }
 
 private val VENDOR_CASING = listOf(
     "Deepseek" to "DeepSeek", "Glm" to "GLM", "Minimax" to "MiniMax", "Openai" to "OpenAI",
