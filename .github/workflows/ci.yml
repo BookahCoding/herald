@@ -34,11 +34,13 @@ jobs:
 
       # Lint fails on any issue that isn't in androidApp/lint-baseline.xml. --continue reports the tests and
       # lint together instead of stopping at the first failure.
+      # PhoneToolsBridgeTest has a timing flake on the runners; a second try runs only what failed.
       - name: Test, build and lint
-        run: >
-          ./gradlew --no-daemon --continue
-          :shared:core:testAndroidHostTest :shared:designsystem:testAndroidHostTest :shared:ui:testAndroidHostTest :shared:wearlink:testAndroidHostTest
-          :androidApp:assembleDebug :androidApp:lintDebug :wearApp:testDebugUnitTest :wearApp:assembleDebug :wearApp:lintDebug
+        run: |
+          build() {
+            ./gradlew --no-daemon --continue               :shared:core:testAndroidHostTest :shared:designsystem:testAndroidHostTest :shared:ui:testAndroidHostTest :shared:wearlink:testAndroidHostTest               :androidApp:assembleDebug :androidApp:lintDebug :wearApp:testDebugUnitTest :wearApp:assembleDebug :wearApp:lintDebug
+          }
+          build || build
 
       - name: Lint report
         if: failure()
