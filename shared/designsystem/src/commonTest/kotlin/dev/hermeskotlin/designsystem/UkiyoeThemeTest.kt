@@ -3,8 +3,11 @@ package dev.hermeskotlin.designsystem
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
+import kotlin.math.abs
+import kotlin.math.cbrt
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -85,11 +88,44 @@ class UkiyoeThemeTest {
     }
 
     @Test
-    fun theInversePillReadsAndStaysApartFromTheAccent() {
+    fun theInversePillReads() {
         for ((scheme, colors) in schemes) {
             assertTrue(contrast(colors.getValue(onInverse), colors.getValue(inverse)) >= 7f, "$scheme inverse")
-            // A destructive action is never mistaken for the accent.
-            assertTrue(colors.getValue(danger) != colors.getValue(accent), "$scheme danger vs accent")
+        }
+    }
+
+    /** CIE L*a*b* of an sRGB color, to measure how different two colors look rather than how different their numbers are. */
+    private fun lab(c: Color): Triple<Double, Double, Double> {
+        fun lin(v: Float) = v.toDouble().let { if (it <= 0.04045) it / 12.92 else Math.pow((it + 0.055) / 1.055, 2.4) }
+        val r = lin(c.red); val g = lin(c.green); val b = lin(c.blue)
+        val x = (0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047
+        val y = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        val z = (0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883
+        fun f(t: Double) = if (t > 0.008856) cbrt(t) else 7.787 * t + 16.0 / 116
+        return Triple(116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z)))
+    }
+
+    private fun difference(a: Color, b: Color): Double {
+        val (l1, a1, b1) = lab(a)
+        val (l2, a2, b2) = lab(b)
+        return sqrt((l1 - l2) * (l1 - l2) + (a1 - a2) * (a1 - a2) + (b1 - b2) * (b1 - b2))
+    }
+
+    private fun hue(c: Color): Double {
+        val (_, a, b) = lab(c)
+        return Math.toDegrees(Math.atan2(b, a)).let { if (it < 0) it + 360 else it }
+    }
+
+    @Test
+    fun aDestructiveActionIsNeverMistakenForTheAccent() {
+        for ((scheme, colors) in schemes) {
+            val accentColor = colors.getValue(accent)
+            val dangerColor = colors.getValue(danger)
+            val apart = difference(accentColor, dangerColor)
+            val hueGap = abs(hue(accentColor) - hue(dangerColor)).let { min(it, 360 - it) }
+            // Terracotta and a red are neighbours: they must still look like two colors (measured, not just unequal).
+            assertTrue(apart >= 25.0, "$scheme: danger is only $apart apart from the accent")
+            assertTrue(hueGap >= 15.0, "$scheme: danger is only $hueGap degrees of hue from the accent")
         }
     }
 

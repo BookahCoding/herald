@@ -65,7 +65,7 @@ class AccentPalette private constructor(
                 line = Color(0xFF3E3B2E).copy(alpha = 0.12f), lineStrong = Color(0xFF3E3B2E).copy(alpha = 0.20f),
                 text = Color(0xFF2B2822), text2 = Color(0xFF403B31), text4 = Color(0xFF6A5F50), text5 = Color(0xFF8C8170),
                 inverse = Color(0xFF262E48), onInverse = Color(0xFFFAF5E3),
-                danger = Color(0xFF9F1F36), success = Color(0xFF3F6A4B), warning = Color(0xFF855608),
+                danger = Color(0xFF8A1C45), success = Color(0xFF3F6A4B), warning = Color(0xFF855608),
             )
             val dark = Neutrals(
                 bg = Color(0xFF0E1424), surface = Color(0xFF151C30), surface2 = Color(0xFF1B2440),
@@ -74,7 +74,7 @@ class AccentPalette private constructor(
                 line = ink.copy(alpha = 0.08f), lineStrong = ink.copy(alpha = 0.14f),
                 text = ink, text2 = Color(0xFFDCD3BC), text4 = Color(0xFFA8A08C), text5 = Color(0xFF7F7B6C),
                 inverse = ink, onInverse = Color(0xFF0E1424),
-                danger = Color(0xFFF07A86), success = Color(0xFF7DBE8A), warning = Color(0xFFE3B458),
+                danger = Color(0xFFF4739B), success = Color(0xFF7DBE8A), warning = Color(0xFFE3B458),
             )
             // Pure black: the same indigo steps, each pulled toward black.
             val black = Neutrals(
