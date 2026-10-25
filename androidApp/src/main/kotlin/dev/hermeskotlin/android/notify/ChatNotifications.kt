@@ -28,6 +28,7 @@ import dev.hermeskotlin.core.phone.AgentCall
 import dev.hermeskotlin.core.phone.CallOpeners
 import dev.hermeskotlin.core.phone.CallOutcome
 import dev.hermeskotlin.core.phone.CallReason
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.ui.calls.agentCallReason
 import dev.hermeskotlin.ui.calls.callReason
 import java.util.UUID
@@ -47,6 +48,8 @@ class ChatNotifications(
     private val context: Context,
     /** Why the agent called, for a call picked up on the watch to open with. */
     private val openers: CallOpeners = CallOpeners(),
+    /** The last check before a notification for a profile is posted, whoever asked: see [ProfileGate]. */
+    private val profiles: ProfileGate = ProfileGate.AllowAll,
 ) {
 
     private val manager = NotificationManagerCompat.from(context)
@@ -528,6 +531,7 @@ class ChatNotifications(
      * conversations and can be prioritised or bubbled like a person's.
      */
     fun postBotMessage(bot: Bot, picture: ByteArray?, storedSessionId: String, text: String, viaPush: Boolean = false) {
+        if (!profiles.allowsHere(bot.name)) return
         val preview = text.toPlainText().take(MAX_PREVIEW).ifBlank { return }
         // One message can arrive both over the gateway socket and through push: the second copy is dropped.
         // The same words twice from one path are two messages (a bot repeating itself) and both notify.
@@ -587,7 +591,7 @@ class ChatNotifications(
      * opens the room.
      */
     fun postRoomMessages(roomId: String, name: String, lines: List<RoomNotice>) {
-        val fresh = lines.mapNotNull { line -> line.text.toPlainText().take(MAX_PREVIEW).ifBlank { null }?.let { line.copy(text = it) } }
+        val fresh = lines.filter { profiles.allowsHere(it.bot.name) }.mapNotNull { line -> line.text.toPlainText().take(MAX_PREVIEW).ifBlank { null }?.let { line.copy(text = it) } }
         if (fresh.isEmpty()) return
         val history = (unreadRoomLines[roomId].orEmpty() + fresh).takeLast(MAX_STACKED)
         unreadRoomLines[roomId] = history
@@ -653,6 +657,7 @@ class ChatNotifications(
      * job's next run replaces its last.
      */
     fun postCronRun(key: String, bot: String, job: String, title: String, text: String, failed: Boolean) {
+        if (!profiles.allowsHere(bot)) return
         val body = text.toPlainText().take(MAX_PREVIEW).ifBlank { if (failed) "The run failed." else "Finished." }
         val notification = base(if (failed) CHANNEL_INBOX_FAILED else CHANNEL_INBOX)
             .setContentTitle(if (failed) "$title failed" else title)

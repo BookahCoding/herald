@@ -2,6 +2,7 @@ package dev.hermeskotlin.android.wear
 
 import dev.hermeskotlin.android.notify.ChatNotifications
 import dev.hermeskotlin.core.chat.InputRequest
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.wear.WatchRelay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,7 +20,12 @@ import kotlinx.coroutines.launch
  * app never shows the watch's chat; answered through [dev.hermeskotlin.android.notify.NotificationActionReceiver].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class WearRequests(private val relay: WatchRelay, private val notifications: ChatNotifications) {
+class WearRequests(
+    private val relay: WatchRelay,
+    private val notifications: ChatNotifications,
+    /** The watch's chat runs in the picked profile, which must be one this phone may hear from. */
+    private val profiles: ProfileGate,
+) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -33,8 +39,9 @@ class WearRequests(private val relay: WatchRelay, private val notifications: Cha
         scope.launch {
             relay.session.flatMapLatest { it?.state ?: flowOf(null) }.collect { state ->
                 val open = state?.inputRequests.orEmpty()
+                val mayTell = profiles.allowsSelected()
                 for (request in open) {
-                    if (request.id in posted) continue
+                    if (request.id in posted || !mayTell) continue
                     // On a live call the voice asks it: it waits here without a sound, and off the watch, in case the
                     // call doesn't get it answered.
                     val onCall = relay.onCall

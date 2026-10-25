@@ -9,6 +9,7 @@ import dev.hermeskotlin.core.chat.TurnOutcome
 import dev.hermeskotlin.core.connection.ConnectionState
 import dev.hermeskotlin.core.connection.GatewayConnection
 import dev.hermeskotlin.core.phone.ringsForAnswers
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.settings.AppSettings
 import dev.hermeskotlin.core.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
@@ -38,6 +39,7 @@ class ChatNotifier(
     private val notifications: ChatNotifications,
     private val connection: GatewayConnection,
     private val bots: BotNotifier,
+    private val profiles: ProfileGate,
     /** Something outside the open chat needs the connection now: the watch's turn ([WatchRelay.busy]). */
     private val outsideWork: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
@@ -93,7 +95,7 @@ class ChatNotifier(
                 // still needs its notification once Herald isn't. In sight, cancelAttention took them down.
                 if (visible) {
                     notified.clear()
-                } else if (prefs.notifyRequests) {
+                } else if (prefs.notifyRequests && profiles.allowsHere(session.profile)) {
                     for (request in state.inputRequests) {
                         if (request.id !in notified && notifications.postRequest(state.storedSessionId, state.title, request, prefs.ringsForAnswers, prefs.phoneRingsTalk)) {
                             notified.add(request.id)
@@ -109,7 +111,7 @@ class ChatNotifier(
                 val storedId = state.storedSessionId
                 if (storedId != null) {
                     if (state.running && previous?.running == false) notifications.cancelReply(storedId)
-                    if (previous?.running == true && !state.running && !visible && prefs.notifyReplies) {
+                    if (previous?.running == true && !state.running && !visible && prefs.notifyReplies && profiles.allowsHere(session.profile)) {
                         val reply = state.messages.lastOrNull() as? ChatMessage.Assistant
                         if (reply != null && reply.outcome != TurnOutcome.Interrupted) {
                             val failed = reply.outcome == TurnOutcome.Error

@@ -10,7 +10,9 @@ import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.storage.KeyValueStore
 import dev.hermeskotlin.core.network.HermesJson
 import dev.hermeskotlin.core.network.createHttpClient
+import dev.hermeskotlin.core.push.PROFILE_ALLOWLIST
 import dev.hermeskotlin.core.push.PluginUpdate
+import dev.hermeskotlin.core.push.PushPluginReply
 import dev.hermeskotlin.core.push.PushApi
 import dev.hermeskotlin.core.push.PushGateway
 import dev.hermeskotlin.core.push.PushKeys
@@ -149,6 +151,8 @@ class PhoneToolsBridgeTest {
                 words[0] == "info" -> buildJsonObject {
                     put("ok", true)
                     put("version", version)
+                    // The plugin this Herald installs limits a phone to its profiles; an old one never said so.
+                    if (PushPluginReply(version = version).versionAtLeast(PushApi.PLUGIN_VERSION)) put("features", JsonArray(listOf(JsonPrimitive(PROFILE_ALLOWLIST))))
                 }
                 words[0] == "phone" -> {
                     val body = HermesJson.parseToJsonElement(words[2]).jsonObject

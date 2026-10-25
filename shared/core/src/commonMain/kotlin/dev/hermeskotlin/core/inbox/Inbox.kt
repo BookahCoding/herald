@@ -4,6 +4,7 @@ import dev.hermeskotlin.core.cron.Routines
 import dev.hermeskotlin.core.network.HermesJson
 import dev.hermeskotlin.core.push.PushApi
 import dev.hermeskotlin.core.push.PushKeys
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushMessage
 import dev.hermeskotlin.core.rpc.RpcException
 import dev.hermeskotlin.core.storage.KeyValueStore
@@ -173,7 +174,12 @@ class InboxPluginTooOld(val needs: String) : Exception(
  * The Inbox's side of the herald-push plugin (`/herald-push cron …`, from 0.4.0), over the dashboard socket. This
  * phone is named by its push registration's device id, so the Inbox needs Notifications anywhere on.
  */
-class InboxApi(private val push: PushApi, private val keys: PushKeys) {
+class InboxApi(
+    private val push: PushApi,
+    private val keys: PushKeys,
+    /** Runs of a profile that may not notify this phone are dropped from what the gateway lists or gives. */
+    private val gate: ProfileGate = ProfileGate.AllowAll,
+) {
 
     suspend fun following(): Following = follow("following") {}
 
@@ -210,11 +216,12 @@ class InboxApi(private val push: PushApi, private val keys: PushKeys) {
         }
         val reply = decode(InboxReply.serializer(), push.cron("inbox $body")) { it.ok to it.error }
         if (!reply.ok) throw RpcException(0, reply.error ?: "The gateway couldn't list the runs.")
-        return reply.runs
+        return reply.runs.filter { gate.allowsHere(it.bot) }
     }
 
     /** One run in full, or null when the gateway no longer has it. */
     suspend fun read(run: InboxRun): InboxRun? {
+        if (!gate.allowsHere(run.bot)) return null
         val body = request {
             put("bot", run.bot)
             put("job", run.job)
@@ -278,7 +285,12 @@ class InboxApi(private val push: PushApi, private val keys: PushKeys) {
  * Every change names the gateway it is for: one that comes in after the store moved to another gateway (a
  * list read, or a push, that outlived the switch) is dropped rather than written into the other's Inbox.
  */
-class InboxStore(private val store: KeyValueStore, private val work: CoroutineContext = Dispatchers.Default) {
+class InboxStore(
+    private val store: KeyValueStore,
+    private val work: CoroutineContext = Dispatchers.Default,
+    /** Which profiles' runs may be kept: every run that comes in, or was kept before, passes it. */
+    private val gate: ProfileGate = ProfileGate.AllowAll,
+) {
 
     @Serializable
     private data class Saved(
@@ -323,6 +335,10 @@ class InboxStore(private val store: KeyValueStore, private val work: CoroutineCo
      * name the user gave the job.
      */
     suspend fun receive(gatewayUrl: String, run: InboxRun): InboxGroups = lock.withLock {
+        // A profile this phone may not hear from is not kept, whoever sent it.
+        if (!gate.allows(gatewayUrl, run.bot)) {
+            return@withLock if (gateway == gatewayUrl) _state.value.groups else (load(gatewayUrl)?.groups ?: InboxGroups())
+        }
         if (gateway == gatewayUrl) {
             val next = _state.value.let { s -> s.copy(runs = merge(listOf(run) + s.runs.filter { it.key != run.key })) }
             _state.value = next
@@ -335,8 +351,13 @@ class InboxStore(private val store: KeyValueStore, private val work: CoroutineCo
         }
     }
 
-    private suspend fun loadOrStart(gatewayUrl: String, now: Long): Saved =
-        load(gatewayUrl) ?: Saved(since = now).also { save(gatewayUrl, it) }
+    private suspend fun loadOrStart(gatewayUrl: String, now: Long): Saved {
+        val saved = load(gatewayUrl) ?: return Saved(since = now).also { save(gatewayUrl, it) }
+        // Runs kept before a profile was taken off the list go now.
+        val allowed = saved.runs.filter { gate.allows(gatewayUrl, it.bot) }
+        if (allowed.size == saved.runs.size) return saved
+        return saved.copy(runs = allowed).also { save(gatewayUrl, it) }
+    }
 
     /**
      * What the gateway listed, newest first: it replaces the kept runs, by [mergeListed]'s rules. [complete] is
@@ -345,6 +366,9 @@ class InboxStore(private val store: KeyValueStore, private val work: CoroutineCo
     suspend fun replace(gatewayUrl: String, runs: List<InboxRun>, complete: Boolean) = edit(gatewayUrl) { s ->
         s.copy(runs = mergeListed(s.runs, runs, complete).take(MAX_KEPT))
     }
+
+    /** Drops the kept runs of profiles that have been taken off the list since they were kept. */
+    suspend fun enforce(gatewayUrl: String) = edit(gatewayUrl) { it }
 
     /** Drops the kept runs [keep] says no to: what a phone stopped following no longer shows. */
     suspend fun prune(gatewayUrl: String, keep: (InboxRun) -> Boolean) = edit(gatewayUrl) { s ->
@@ -377,7 +401,8 @@ class InboxStore(private val store: KeyValueStore, private val work: CoroutineCo
 
     private suspend fun edit(url: String, change: (Snapshot) -> Snapshot) = lock.withLock {
         if (gateway != url) return@withLock
-        val next = change(_state.value)
+        val changed = change(_state.value)
+        val next = changed.copy(runs = changed.runs.filter { gate.allows(url, it.bot) })
         _state.value = next
         save(url, Saved(next.runs, next.read, next.since, next.groups))
     }

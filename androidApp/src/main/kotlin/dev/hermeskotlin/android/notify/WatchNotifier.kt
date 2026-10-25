@@ -4,6 +4,7 @@ import dev.hermeskotlin.core.chat.ChatHost
 import dev.hermeskotlin.core.chat.SessionWatcher
 import dev.hermeskotlin.core.chat.TurnOutcome
 import dev.hermeskotlin.core.phone.ringsForAnswers
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.sessions.ActiveSessions
 import dev.hermeskotlin.core.settings.AppSettings
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -32,6 +33,7 @@ class WatchNotifier(
     private val notifications: ChatNotifications,
     private val bots: BotNotifier,
     private val rooms: RoomNotifier,
+    private val profiles: ProfileGate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -80,7 +82,9 @@ class WatchNotifier(
                     if (!visible) takenDown.clear()
                     val open = openChat()
                     val side = host.sideChats.value
-                    val waiting = chats.values.filter { it.storedId != open && it.storedId !in side && bots.botWithChat(it.storedId) == null }
+                    // The chats the gateway lists belong to the picked profile, which must be one this phone may hear from.
+                    val mayTell = profiles.allowsSelected()
+                    val waiting = if (!mayTell) emptyList() else chats.values.filter { it.storedId != open && it.storedId !in side && bots.botWithChat(it.storedId) == null }
                     if (visible && !prefs.notifyOtherChatsInApp) {
                         // Coming into sight, ChatNotifier took them down already; the setting turned off in sight,
                         // they'd stay in the shade for good, forgotten here, so they go now either way.
@@ -108,6 +112,7 @@ class WatchNotifier(
             watcher.turnEnds.collect { end ->
                 val prefs = settings.settings.value ?: AppSettings()
                 if (visibility.visible.value && !prefs.notifyOtherChatsInApp || !prefs.notifyReplies) return@collect
+                if (!profiles.allowsSelected()) return@collect
                 if (end.outcome == TurnOutcome.Interrupted || end.storedId == openChat() || end.storedId in host.sideChats.value) return@collect
                 if (bots.botWithChat(end.storedId) != null) return@collect
                 // A room member's turn: its reply is the room's line, which RoomNotifier tells.

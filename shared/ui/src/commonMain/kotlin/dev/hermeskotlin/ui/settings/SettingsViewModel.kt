@@ -15,6 +15,9 @@ import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.network.ApiResult
 import dev.hermeskotlin.core.plugins.NextPromptApi
 import kotlinx.coroutines.CancellationException
+import dev.hermeskotlin.core.inbox.InboxStore
+import dev.hermeskotlin.core.profiles.ProfilesApi
+import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.PushPluginReply
 import dev.hermeskotlin.core.push.PushSetup
 import dev.hermeskotlin.core.push.PushStatus
@@ -52,6 +55,9 @@ sealed interface SuggestionsPlugin {
     data class Failed(val message: String) : SuggestionsPlugin
 }
 
+/** A profile on the gateway and whether it may notify this phone. */
+data class ProfileChoice(val name: String, val allowed: Boolean)
+
 /** "Check connection": the stages done so far, and whether it's still going. */
 data class ConnectionCheckState(val results: Map<CheckStage, StageResult> = emptyMap(), val running: Boolean = false)
 
@@ -63,6 +69,9 @@ class SettingsViewModel(
     private val push: PushSetup,
     private val wallpapers: WallpaperStore,
     private val nextPrompt: NextPromptApi,
+    private val profiles: NotificationProfiles,
+    private val profilesApi: ProfilesApi,
+    private val inbox: InboxStore,
 ) : ViewModel() {
 
     /** The chat background's encoded image, or null when there's none (or it isn't read yet). */
@@ -110,6 +119,7 @@ class SettingsViewModel(
         bound = gateway
         boundProfile = profile
         checkSuggestions()
+        loadProfileChoices()
         if (sameGateway) return
         _gateway.value = GatewayInfo()
         viewModelScope.launch {
@@ -168,6 +178,78 @@ class SettingsViewModel(
             // Settings moved to another gateway or profile meanwhile.
             if (bound?.gatewayUrl != url || boundProfile != profile) checkSuggestions()
         }
+    }
+
+    private val _profileChoices = MutableStateFlow<List<ProfileChoice>>(emptyList())
+
+    /** Every profile on the gateway, and whether it may notify this phone. */
+    val profileChoices: StateFlow<List<ProfileChoice>> = _profileChoices.asStateFlow()
+
+    private val _profileNote = MutableStateFlow<String?>(null)
+
+    /** What went wrong with the last change to the list, or null. */
+    val profileNote: StateFlow<String?> = _profileNote.asStateFlow()
+    private var rosterNames: List<String> = emptyList()
+
+    /** Reads the gateway's profiles; the list shows them with what this phone may be told about each. */
+    fun loadProfileChoices() {
+        val url = bound?.gatewayUrl ?: return
+        viewModelScope.launch {
+            val roster = profilesApi.roster(url)
+            if (bound?.gatewayUrl != url) return@launch
+            if (roster is ApiResult.Success) {
+                rosterNames = roster.value.profiles.map { it.name }
+                _profileNote.value = null
+            } else {
+                _profileNote.value = "Couldn't read the gateway's profiles; only those already on the list show."
+            }
+            publishProfileChoices(url.value)
+        }
+    }
+
+    /** Lets [name] notify this phone, or stops it: kept here, given to the gateway, and the Inbox cleared of it. */
+    fun setProfileAllowed(name: String, on: Boolean) {
+        val key = bound?.gatewayUrl?.value ?: return
+        val next = (profiles.listFor(key).toSet().let { if (on) it + name else it - name }).toList()
+        viewModelScope.launch(Dispatchers.Default) {
+            val problem = push.saveProfiles(key, next)
+            inbox.enforce(key)
+            publishProfileChoices(key)
+            _profileNote.value = problem
+        }
+    }
+
+    private val _profileCheck = MutableStateFlow<String?>(null)
+
+    /** What the last "Check which profiles get through" found, one profile per line; null before or while it runs. */
+    val profileCheck: StateFlow<String?> = _profileCheck.asStateFlow()
+
+    /**
+     * Asks the gateway to push this phone one synthetic message for each profile it knows. A profile on the list
+     * arrives as a notification; one that isn't is stopped at the gateway, and the answer says so.
+     */
+    fun checkProfiles() {
+        _profileCheck.value = null
+        val names = _profileChoices.value.map { it.name }
+        viewModelScope.launch(Dispatchers.Default) {
+            val lines = mutableListOf<String>()
+            for (name in names) {
+                val probe = push.probeProfile(name)
+                lines += "$name: " + when {
+                    probe == null -> "the gateway couldn't say"
+                    !probe.allowed -> "stopped at the gateway"
+                    probe.sent -> "sent: it should arrive now"
+                    else -> "allowed, but the push didn't go out"
+                }
+            }
+            _profileCheck.value = lines.joinToString("\n").ifEmpty { "No profiles to check." }
+        }
+    }
+
+    private fun publishProfileChoices(key: String) {
+        val listed = profiles.listFor(key)
+        // The profiles on the gateway, and any still on the list that it no longer has, so they can be taken off.
+        _profileChoices.value = (rosterNames + listed).distinct().map { ProfileChoice(it, it in listed) }
     }
 
     /** Notifications anywhere: where its setup stands on this gateway. */

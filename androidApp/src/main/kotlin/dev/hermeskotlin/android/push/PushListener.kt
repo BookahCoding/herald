@@ -16,6 +16,7 @@ import dev.hermeskotlin.core.phone.PhoneToolsBridge
 import dev.hermeskotlin.core.push.PushGateway
 import dev.hermeskotlin.core.push.NtfyClient
 import dev.hermeskotlin.core.push.NtfyEvent
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushCrypto
 import dev.hermeskotlin.core.push.PushDirection
 import dev.hermeskotlin.core.push.PushGuard
@@ -52,6 +53,7 @@ class PushListener(
     private val gateways: GatewayRepository,
     private val phoneTools: PhoneToolsBridge,
     private val inbox: InboxStore,
+    private val profiles: ProfileGate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val guard = PushGuard(PushMessage.MAX_AGE_G2P_SECONDS) { System.currentTimeMillis() / 1000 }
@@ -95,7 +97,7 @@ class PushListener(
         if (message == null || !guard.accept(message)) return
         store.seen = guard.snapshot()
         when (message.type) {
-            PushMessage.BOT_MESSAGE -> showBotMessage(message)
+            PushMessage.BOT_MESSAGE -> showBotMessage(message, gatewayUrl)
             PushMessage.PING -> notifications.postPushTest()
             // Only a nudge: the call itself is fetched over the authenticated socket.
             PushMessage.PHONE_REQUEST -> phoneTools.wake()
@@ -112,6 +114,8 @@ class PushListener(
      */
     private suspend fun showCronRun(message: PushMessage, url: String) {
         val run = InboxRun.from(message) ?: return
+        // A profile this phone may not hear from is dropped before it is kept or shown, whatever the gateway sent.
+        if (!profiles.allows(url, run.bot)) return
         // Into that gateway's Inbox, without moving the shared store there: the app may have switched meanwhile.
         val groups = inbox.receive(url, run)
         if (!message.notify) return
@@ -132,8 +136,10 @@ class PushListener(
         return runCatching { HermesJson.decodeFromString(PushMessage.serializer(), plain.decodeToString()) }.getOrNull()
     }
 
-    private suspend fun showBotMessage(message: PushMessage) {
+    private suspend fun showBotMessage(message: PushMessage, gatewayUrl: String?) {
         val name = message.bot?.takeIf { BOT_NAME.matches(it) } ?: return
+        // The gateway's plugin limits what it pushes, but an older plugin, or a list it doesn't have yet, doesn't.
+        if (!profiles.allows(gatewayUrl, name)) return
         val session = message.session?.takeIf { SESSION_ID.matches(it) } ?: return
         val text = message.text?.trim()?.takeIf { it.isNotEmpty() } ?: return
         val prefs = settings.settings.first { it != null } ?: return

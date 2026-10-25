@@ -33,7 +33,7 @@ process, so a person allowed to chat with a bot can't register their own phone. 
 `info`, `unregister <device_id>` and `test <device_id>` (sends a `ping`). Each answers with one JSON object.
 
 If the gateway lacks the plugin, Herald installs it with `plugins.manage {action: "install", identifier:
-"https://github.com/Giton22/hermes-herald-push", ref: <commit>, enable: true}`. That is the same call
+"https://github.com/BookahCoding/hermes-herald-push", ref: <commit>, enable: true}`. That is the same call
 Desktop's Plugins hub makes, and the plugin is live without a restart. `ref` pins the exact commit Herald was
 built against, so a later change to the repository never reaches a gateway unreviewed. A copy that is
 present but switched off is switched on (`plugins.manage {action: "toggle"}`) rather than reinstalled, and
@@ -54,8 +54,29 @@ The phone sends:
 ```json
 { "device_id": "<uuid>", "name": "Pixel 9", "server": "https://ntfy.sh",
   "push_topic": "hp-…", "reply_topic": "hp-…",
-  "enc_pub": "<b64u>", "sig_pub": "<b64u>" }
+  "enc_pub": "<b64u>", "sig_pub": "<b64u>",
+  "profiles": ["default"] }
 ```
+
+`profiles` is the list of Hermes profiles this phone may be pushed (plugin 0.6.0). The plugin stores it before it
+lists the phone, so a phone that renews its identity is limited from its first push. A registration without it
+leaves any list the phone already has; `unregister` forgets it. The plugin's `info` and `register` answers carry
+`features: ["profile_allowlist"]`, which Herald checks for instead of trusting a version number, and Herald
+registers only with a plugin that lists it.
+
+## Which profiles a phone hears from
+
+A phone with a list is pushed exactly those profiles: a bot's reply, a cron run (checked before the `failures` and
+`default` follow rules) and the Inbox's `cron inbox` / `cron read` all leave out any other, whether the plugin has
+seen it before or it was made after the list. A phone with no list is pushed every profile, as before. If the
+file with the lists can't be read, every phone gets `default` only.
+
+`profiles get|set|clear|test <json>` (all with the phone's `device_id`) read, replace and clear the list, and
+`test` sends the phone one synthetic Bot Chat message for a `profile` through the same check, answering
+`{"allowed": …, "sent": …}`.
+
+The phone keeps the same list per gateway and checks it again when a push or a notification arrives, by any path,
+so a plugin that doesn't limit profiles, or hasn't been given the list yet, still can't notify for one.
 
 The gateway stores the record, replacing any earlier one with the same `device_id`, and answers:
 

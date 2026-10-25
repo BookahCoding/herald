@@ -38,6 +38,8 @@ import dev.hermeskotlin.core.profiles.ProfileStore
 import dev.hermeskotlin.core.push.NtfyClient
 import dev.hermeskotlin.core.inbox.InboxLinks
 import dev.hermeskotlin.core.inbox.InboxStore
+import dev.hermeskotlin.core.push.NotificationProfiles
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushApi
 import dev.hermeskotlin.core.profiles.ProfilesApi
 import dev.hermeskotlin.core.settings.SettingsStore
@@ -67,6 +69,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
+import org.koin.dsl.bind
 import org.koin.dsl.module
 
 private const val OUTSIDE_CLIENT = "outside"
@@ -148,7 +151,10 @@ val coreModule = module {
     single { UpdateChecker(get(named(OUTSIDE_CLIENT)), get()) }
     // ntfy is someone else's server: never send it the gateway's cookies.
     single { NtfyClient(get(named(OUTSIDE_CLIENT))) }
-    single { PushApi(get()) }
-    single { InboxStore(get()) }
+    // Which profiles may notify this phone, per gateway: asked by every notifier, and by what the Inbox keeps.
+    single { NotificationProfiles(get(), get(), get(), get()) } bind ProfileGate::class
+    // An update of the plugin never reaches into a profile that isn't on that list.
+    single { PushApi(get(), mayUpdateCopy = { profile -> get<NotificationProfiles>().allowsHere(profile) }) }
+    single { InboxStore(get(), gate = get<NotificationProfiles>()) }
     single { InboxLinks() }
 }

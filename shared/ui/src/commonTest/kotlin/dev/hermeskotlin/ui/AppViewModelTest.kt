@@ -20,6 +20,7 @@ import dev.hermeskotlin.core.gateway.GatewayRepository
 import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.network.createHttpClient
 import dev.hermeskotlin.core.profiles.ProfileStore
+import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.PushApi
 import dev.hermeskotlin.core.push.PushGateway
 import dev.hermeskotlin.core.push.PushKeys
@@ -94,7 +95,8 @@ class AppViewModelTest {
     private fun TestScope.viewModel(): AppViewModel {
         val connection = GatewayConnection(auth, openSocket = { _, _ -> error("no socket in tests") }, scope = backgroundScope)
         val host = ChatHost(connection, SessionsApi(client), backgroundScope)
-        val push = PushSetup(PushApi(connection), NoPushKeys, connection, gateways, SettingsStore(store, backgroundScope), backgroundScope) { "Test" }
+        val profiles = NotificationProfiles(store, gateways, ProfileStore(store), backgroundScope)
+        val push = PushSetup(PushApi(connection), NoPushKeys, connection, gateways, SettingsStore(store, backgroundScope), profiles, backgroundScope) { "Test" }
         return AppViewModel(gateways, auth, connection, lastChats, host, ProfileStore(store), links, BotChats(NoBotChats), push, access, cache, seen)
     }
 

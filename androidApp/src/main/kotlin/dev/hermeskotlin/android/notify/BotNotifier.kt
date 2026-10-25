@@ -13,6 +13,7 @@ import dev.hermeskotlin.core.network.ApiResult
 import dev.hermeskotlin.core.network.HermesJson
 import kotlinx.serialization.builtins.ListSerializer
 import dev.hermeskotlin.core.sessions.SessionsApi
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.settings.AppSettings
 import dev.hermeskotlin.core.settings.SettingsStore
 import kotlinx.coroutines.CancellationException
@@ -51,6 +52,7 @@ class BotNotifier(
     private val gateways: GatewayRepository,
     private val settings: SettingsStore,
     private val notifications: ChatNotifications,
+    private val profiles: ProfileGate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lock = Mutex()
@@ -163,6 +165,8 @@ class BotNotifier(
             val before = seen.put(bot.name, now)
             if (!notify || before == null || before == now) continue
             if (bot.meta.hidden || !prefs.notifyReplies) continue
+            // Only the profiles this phone may hear from; the roster and the shortcuts still show every bot.
+            if (!profiles.allowsHere(bot.name)) continue
             // The open chat's reply is ChatNotifier's to tell.
             if (open != null && (open == chat.id || open == chat.openId)) continue
             val storedId = chat.openId ?: continue

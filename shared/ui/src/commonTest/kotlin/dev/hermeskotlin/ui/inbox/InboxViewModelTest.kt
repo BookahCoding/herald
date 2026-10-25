@@ -12,11 +12,13 @@ import dev.hermeskotlin.core.inbox.InboxApi
 import dev.hermeskotlin.core.inbox.InboxRun
 import dev.hermeskotlin.core.inbox.InboxStore
 import dev.hermeskotlin.core.network.createHttpClient
+import dev.hermeskotlin.core.push.NotificationProfiles
 import dev.hermeskotlin.core.push.PushApi
 import dev.hermeskotlin.core.push.PushGateway
 import dev.hermeskotlin.core.push.PushKeys
 import dev.hermeskotlin.core.push.PushRegistration
 import dev.hermeskotlin.core.push.PushSetup
+import dev.hermeskotlin.core.profiles.ProfileStore
 import dev.hermeskotlin.core.rpc.RpcTransport
 import dev.hermeskotlin.core.settings.SettingsStore
 import dev.hermeskotlin.core.storage.InMemoryKeyValueStore
@@ -127,7 +129,9 @@ class InboxViewModelTest {
         settings.settings.first { it != null }
         settings.update { it.copy(pushAnywhere = true) }
         val pushApi = PushApi(connection)
-        val push = PushSetup(pushApi, Keys, connection, GatewayRepository(InMemoryKeyValueStore()), settings, backgroundScope) { "Test" }
+        val gateways = GatewayRepository(InMemoryKeyValueStore())
+        val profiles = NotificationProfiles(InMemoryKeyValueStore(), gateways, ProfileStore(InMemoryKeyValueStore()), backgroundScope)
+        val push = PushSetup(pushApi, Keys, connection, gateways, settings, profiles, backgroundScope) { "Test" }
         return InboxViewModel(InboxApi(pushApi, Keys), store, CronApi(client), push, connection, settings)
     }
 

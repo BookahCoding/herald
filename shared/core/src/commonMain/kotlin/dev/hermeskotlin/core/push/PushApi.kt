@@ -34,7 +34,20 @@ data class PushPluginReply(
     val version: String? = null,
     val gateway: PushGateway? = null,
     val watching: Boolean = false,
+    /** What the plugin can do that is checked by name, not by version: see [PROFILE_ALLOWLIST]. */
+    val features: List<String> = emptyList(),
+    /** With `register` and `profiles …`: the profiles the plugin will push this phone; null when it has no list. */
+    val profiles: List<String>? = null,
 ) {
+    /** Whether the plugin limits what it pushes to a phone to that phone's list of profiles. */
+    val limitsProfiles: Boolean get() = PROFILE_ALLOWLIST in features
+
+    /** The version [PushApi.PLUGIN_VERSION] reviewed with, and the feature itself: another 0.6.x without it is not this plugin. */
+    val isCurrent: Boolean get() = versionAtLeast(PushApi.PLUGIN_VERSION) && limitsProfiles
+
+    /** At least [minimum]; for the minimum this Herald registers with for push, that includes limiting profiles. */
+    fun satisfies(minimum: String): Boolean = versionAtLeast(minimum) && (minimum != PushApi.MIN_PUSH_PLUGIN_VERSION || limitsProfiles)
+
     /** True when the plugin is at least [minimum] ("0.1.1"); an unparseable version counts as too old. */
     fun versionAtLeast(minimum: String): Boolean {
         val have = version?.split('.')?.map { it.toIntOrNull() ?: return false } ?: return false
@@ -64,6 +77,13 @@ sealed interface PluginState {
     data class Outdated(val update: PluginUpdate) : PluginState
     data class Failed(val reason: String?) : PluginState
 }
+
+/** What the plugin lists in `features` when it can limit a phone to a list of profiles. */
+const val PROFILE_ALLOWLIST = "profile_allowlist"
+
+/** The gateway's answer to a synthetic push for one profile. */
+@Serializable
+data class ProfileProbe(val ok: Boolean = false, val error: String? = null, val allowed: Boolean = false, val sent: Boolean = false)
 
 /** A phone tool call the agent is waiting on (`/herald-push phone pending`). */
 @Serializable
@@ -114,7 +134,14 @@ data class KnownPhone(
  * dashboard (never a messaging platform). Registering over this authenticated link is what makes the
  * gateway keys the phone pins trustworthy.
  */
-class PushApi(private val connection: GatewayConnection) {
+class PushApi(
+    private val connection: GatewayConnection,
+    /**
+     * Whether a profile's own copy of the plugin may be replaced by an update: false for a profile that isn't on this
+     * phone's list, so updating the plugin never touches a profile the user didn't choose.
+     */
+    private val mayUpdateCopy: (profile: String) -> Boolean = { true },
+) {
 
     private val preparing = Mutex()
     private var updateFailure: Pair<JsonRpcClient, List<String>>? = null
@@ -125,6 +152,11 @@ class PushApi(private val connection: GatewayConnection) {
      * other to look again instead of still offering the update.
      */
     val updates: StateFlow<Int> = _updates.asStateFlow()
+
+    private val _leftAlone = MutableStateFlow<List<String>>(emptyList())
+
+    /** The profiles whose old copy of the plugin was not updated because they aren't on this phone's list. */
+    val leftAlone: StateFlow<List<String>> = _leftAlone.asStateFlow()
 
     private val _registrations = MutableStateFlow(0)
 
@@ -144,6 +176,36 @@ class PushApi(private val connection: GatewayConnection) {
             ?: throw RpcException(0, "Herald push isn't installed on the gateway.")
 
     suspend fun unregister(deviceId: String): Boolean = command("unregister $deviceId")?.ok == true
+
+    /**
+     * Gives the gateway this phone's list of profiles it may be pushed. Null when the plugin is too old to keep one
+     * (or isn't there); else the list it now holds.
+     */
+    suspend fun setProfiles(deviceId: String, profiles: List<String>): List<String>? {
+        val body = buildJsonObject {
+            put("device_id", deviceId)
+            put("profiles", JsonArray(profiles.map(::JsonPrimitive)))
+        }
+        val reply = command("profiles set $body") ?: return null
+        if (!reply.ok) throw RpcException(0, reply.error ?: "The gateway refused the list of profiles.")
+        return reply.profiles
+    }
+
+    /**
+     * Asks the gateway to push this phone one synthetic message for [profile], through the check real ones pass.
+     * [ProfileProbe.allowed] says whether the gateway let it through; null without a plugin that can.
+     */
+    suspend fun probeProfile(deviceId: String, profile: String): ProfileProbe? {
+        val body = buildJsonObject {
+            put("device_id", deviceId)
+            put("profile", profile)
+        }
+        val reply = output("profiles test $body")?.let {
+            runCatching { HermesJson.decodeFromString(ProfileProbe.serializer(), it) }.getOrNull()
+        } ?: return null
+        if (!reply.ok) throw RpcException(0, reply.error ?: "The gateway refused the test.")
+        return reply
+    }
 
     /** Asks the gateway to send this phone a test notification through ntfy. */
     suspend fun test(deviceId: String): Boolean = command("test $deviceId")?.ok == true
@@ -218,7 +280,7 @@ class PushApi(private val connection: GatewayConnection) {
         }
         val failures = mutableListOf<String>()
         var changed = false
-        if (update && info != null && info.ok && !info.versionAtLeast(PLUGIN_VERSION)) {
+        if (update && info != null && info.ok && !info.isCurrent) {
             onStep("Updating the gateway's plugin to $PLUGIN_VERSION…")
             try {
                 install(force = true)
@@ -229,13 +291,13 @@ class PushApi(private val connection: GatewayConnection) {
                 failures += "gateway: ${e.message}"
             }
             info = info()
-            if (info == null || !info.ok || !info.versionAtLeast(PLUGIN_VERSION)) {
+            if (info == null || !info.ok || !info.isCurrent) {
                 failures += "The gateway's herald-push plugin was not updated to $PLUGIN_VERSION."
             }
         }
         // An update always looks afresh: the copies may have changed since (Desktop's Plugins hub, another phone).
         if (update) scannedBots = null
-        val copies = if (info?.ok == true && (update || info.versionAtLeast(minimum))) botCopies(rpc, failures) else emptyList()
+        val copies = if (info?.ok == true && (update || info.satisfies(minimum))) botCopies(rpc, failures) else emptyList()
         val pending = copies.toMutableList()
         if (update) {
             for (copy in copies) {
@@ -256,14 +318,14 @@ class PushApi(private val connection: GatewayConnection) {
         }
         // Both bridges refresh after an update; keep partial failures visible until another ask or connection.
         if (update) updateFailure = failures.takeIf {
-            it.isNotEmpty() && info?.ok == true && info.versionAtLeast(PLUGIN_VERSION)
+            it.isNotEmpty() && info?.ok == true && info.isCurrent
         }?.let { rpc to it.toList() }
         // What's still old after the update, verified copy by copy: the refreshes it sets off needn't look again.
         // Only after a look that saw every profile; else they look again, and say again which they couldn't.
         if (update && copies.isNotEmpty() && scannedBots?.rpc === rpc) scannedBots = ScannedBots(rpc, pending.toList(), emptyList())
         if (changed) _updates.update { it + 1 }
         val detail = (failures + updateFailure?.second.orEmpty()).distinct().takeIf { it.isNotEmpty() }?.joinToString("\n")
-        if (detail != null && (info == null || !info.ok || !info.versionAtLeast(minimum))) {
+        if (detail != null && (info == null || !info.ok || !info.satisfies(minimum))) {
             return@withLock PluginState.Failed(detail)
         }
         val botUpdate = (pending.firstOrNull()?.version ?: detail?.let { "unknown" })?.let {
@@ -272,8 +334,8 @@ class PushApi(private val connection: GatewayConnection) {
         when {
             info == null -> PluginState.Missing
             !info.ok -> PluginState.Failed(info.error)
-            !info.versionAtLeast(minimum) -> PluginState.Outdated(PluginUpdate(info.version ?: "unknown", PLUGIN_VERSION, needed = true))
-            !info.versionAtLeast(PLUGIN_VERSION) -> PluginState.Ready(info, PluginUpdate(info.version ?: "unknown", PLUGIN_VERSION, needed = false), detail)
+            !info.satisfies(minimum) -> PluginState.Outdated(PluginUpdate(info.version ?: "unknown", PLUGIN_VERSION, needed = true))
+            !info.isCurrent -> PluginState.Ready(info, PluginUpdate(info.version ?: "unknown", PLUGIN_VERSION, needed = false), detail)
             else -> PluginState.Ready(info, botUpdate, detail)
         }
     }
@@ -309,10 +371,12 @@ class PushApi(private val connection: GatewayConnection) {
             if (!(e is RpcException && e.code == -32601)) failures += "bot profiles: ${e.message}"
             return ScannedBots(rpc, emptyList(), failures)
         }
+        val skipped = mutableListOf<String>()
         val copies = bots.mapNotNull { bot ->
             try {
                 // A version that doesn't read as one may be newer (a dev copy): never replaced.
                 botCopy(bot.name)?.takeIf { it.version.isVersion() && !PushPluginReply(version = it.version).versionAtLeast(PLUGIN_VERSION) }
+                    ?.takeIf { copy -> mayUpdateCopy(copy.profile).also { if (!it) skipped += "${copy.profile} (${copy.version})" } }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -320,6 +384,7 @@ class PushApi(private val connection: GatewayConnection) {
                 null
             }
         }
+        _leftAlone.value = skipped
         return ScannedBots(rpc, copies, failures)
     }
 
@@ -445,16 +510,23 @@ class PushApi(private val connection: GatewayConnection) {
 
     companion object {
         const val PLUGIN_COMMAND = "herald-push"
-        const val PLUGIN_REPO = "https://github.com/Giton22/hermes-herald-push"
+        /** This app's own plugin, not the original: it is the one that limits a phone to its list of profiles. */
+        const val PLUGIN_REPO = "https://github.com/BookahCoding/hermes-herald-push"
 
         /** The plugin commit this Herald was built and reviewed against. */
-        const val PLUGIN_REF = "c88f02785286ca7d408e50ad530515be3885f8ba"
+        const val PLUGIN_REF = "baa29effccc31757d71faa6f266e5c26176207d0"
 
         /** The version at [PLUGIN_REF]: an older copy on the gateway is offered this as an update. */
-        const val PLUGIN_VERSION = "0.5.1"
+        const val PLUGIN_VERSION = "0.6.0"
 
-        /** The oldest plugin this Herald works with; an older copy waits for the user to update it. */
+        /** The oldest plugin this Herald can talk to at all, which is how far back "turn everything off" still reaches. */
         const val MIN_PLUGIN_VERSION = "0.1.1"
+
+        /**
+         * The oldest plugin this Herald registers a phone with for push. Older ones push every profile to every phone,
+         * so they wait for the user to update them; what they send meanwhile is dropped on the phone.
+         */
+        const val MIN_PUSH_PLUGIN_VERSION = "0.6.0"
 
         /** The oldest plugin with phone tools as this Herald speaks them (calls go to the phone the chat is on). */
         const val MIN_PHONE_PLUGIN_VERSION = "0.3.0"

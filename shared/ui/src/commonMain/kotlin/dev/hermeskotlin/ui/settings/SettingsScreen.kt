@@ -197,6 +197,9 @@ fun SettingsScreen(
     // Read again when the App icon page closes, so its row names the icon just applied.
     val appIcons = key(appIconOpen) { rememberAppIcons() }
     val suggestions by viewModel.suggestions.collectAsStateWithLifecycle()
+    val profileChoices by viewModel.profileChoices.collectAsStateWithLifecycle()
+    val profileNote by viewModel.profileNote.collectAsStateWithLifecycle()
+    val profileCheck by viewModel.profileCheck.collectAsStateWithLifecycle()
     LaunchedEffect(gateway, profile) { viewModel.bind(gateway, profile) }
     PlatformBackHandler(enabled = !checkOpen && !phoneToolsOpen && !appIconOpen && !startInstructionOpen, onBack = onBack)
     SettingsView(
@@ -226,6 +229,11 @@ fun SettingsScreen(
         suggestions = suggestions,
         onInstallSuggestions = viewModel::installSuggestions,
         onCheckSuggestions = viewModel::checkSuggestions,
+        profileChoices = profileChoices,
+        profileNote = profileNote,
+        onProfileAllowed = viewModel::setProfileAllowed,
+        profileCheck = profileCheck,
+        onCheckProfiles = viewModel::checkProfiles,
     )
     if (phoneToolsOpen) PhoneToolsScreen(onBack = { phoneToolsOpen = false })
     if (startInstructionOpen) {
@@ -319,6 +327,12 @@ internal fun SettingsView(
     suggestions: SuggestionsPlugin = SuggestionsPlugin.Checking,
     onInstallSuggestions: () -> Unit = {},
     onCheckSuggestions: () -> Unit = {},
+    /** The gateway's profiles and which of them may notify this phone. */
+    profileChoices: List<ProfileChoice> = emptyList(),
+    profileNote: String? = null,
+    onProfileAllowed: (String, Boolean) -> Unit = { _, _ -> },
+    profileCheck: String? = null,
+    onCheckProfiles: () -> Unit = {},
 ) {
     Box(
         Modifier
@@ -622,6 +636,33 @@ internal fun SettingsView(
                             onCheckedChange = { on -> onUpdate { it.copy(otherChatsVibrate = on) } },
                             icon = Lucide.Vibrate,
                         )
+                    }
+                    Divider()
+                    InfoRow(
+                        "Profiles that may notify this phone",
+                        "Only these send notifications here, over the connection and by push. A profile made later stays off until you turn it on.",
+                    )
+                    profileChoices.forEach { choice ->
+                        Divider()
+                        SwitchRow(
+                            title = choice.name,
+                            detail = if (choice.allowed) "Notifies this phone" else "Silent on this phone",
+                            checked = choice.allowed,
+                            onCheckedChange = { on -> onProfileAllowed(choice.name, on) },
+                            icon = Lucide.BellRing,
+                        )
+                    }
+                    if (profileNote != null) {
+                        Divider()
+                        InfoRow("Profiles", profileNote)
+                    }
+                    if (settings.pushAnywhere && push.state == PushStatus.State.On && profileChoices.isNotEmpty()) {
+                        Divider()
+                        ActionRow("Check which profiles get through", Lucide.Send, onCheckProfiles)
+                        if (profileCheck != null) {
+                            Divider()
+                            InfoRow("Last check", profileCheck, maxLines = 12)
+                        }
                     }
                     Divider()
                     SwitchRow(
@@ -1011,10 +1052,10 @@ private fun TextSizeSlider(selected: TextSize, onSelect: (TextSize) -> Unit) {
 private val SLIDER_THUMB = 22.dp
 
 @Composable
-internal fun InfoRow(title: String, value: String) {
+internal fun InfoRow(title: String, value: String, maxLines: Int = 2) {
     Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = Theme[typography][body], color = Theme[colors][text])
-        Text(value, style = Theme[typography][bodySmall], color = Theme[colors][textTertiary], maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(value, style = Theme[typography][bodySmall], color = Theme[colors][textTertiary], maxLines = maxLines, overflow = TextOverflow.Ellipsis)
     }
 }
 

@@ -34,6 +34,7 @@ class PushSetup(
     private val connection: GatewayConnection,
     private val gateways: GatewayRepository,
     private val settings: SettingsStore,
+    private val profiles: NotificationProfiles,
     private val scope: CoroutineScope,
     private val deviceName: () -> String,
 ) {
@@ -92,6 +93,34 @@ class PushSetup(
 
     suspend fun test(): Boolean = runCatching { api.test(keys.deviceId) }.getOrDefault(false)
 
+    /**
+     * Asks the gateway to push this phone one synthetic message for [profile], through the same check real ones pass.
+     * Null when the gateway can't say (not connected, or a plugin that doesn't do this).
+     */
+    suspend fun probeProfile(profile: String): ProfileProbe? =
+        runCatching { api.probeProfile(keys.deviceId, profile) }.getOrNull()
+
+    /**
+     * The user changed which profiles may notify this phone. Kept here first, where it applies at once; then given
+     * to the gateway, which stops pushing the others. Registering again (every connection) carries the list too,
+     * so a gateway that can't be reached now gets it then. Null when all went through, else what didn't.
+     */
+    suspend fun saveProfiles(gateway: String, allowed: List<String>): String? {
+        profiles.set(gateway, allowed)
+        if (settings.settings.value?.pushAnywhere != true || connection.state.value !is ConnectionState.Connected) return null
+        if (gateways.current()?.gatewayUrl?.value != gateway) return null
+        return try {
+            when (api.setProfiles(keys.deviceId, profiles.listFor(gateway))) {
+                null -> "The gateway's plugin can't limit profiles. Update it."
+                else -> null
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            "Saved on this phone. The gateway didn't take it (${e.message}); it is sent again when Herald next connects."
+        }
+    }
+
     private suspend fun retireNow() {
         val url = keys.pinnedGatewayUrl() ?: return
         // Retired first: if the gateway can't be told now, it's told on the next connection.
@@ -119,13 +148,19 @@ class PushSetup(
             keys.pinnedGatewayUrl()?.takeIf { it != url }?.let(keys::retire)
             val ready = plugin(install, update) ?: return@withLock
             val info = ready.info
+            // A plugin that can't limit a phone to its profiles would push every one of them: don't register with it.
+            if (!info.limitsProfiles) {
+                _status.value = PushStatus(State.Outdated, update = PluginUpdate(info.version ?: "unknown", PushApi.PLUGIN_VERSION, needed = true))
+                return@withLock
+            }
             // Refused keys would leave a registration the phone can't retire: check them first.
             val announced = info.gateway?.takeIf(keys::accepts)
             if (announced == null) {
                 _status.value = PushStatus(State.Failed, "The gateway's plugin sent unusable keys.")
                 return@withLock
             }
-            val reply = api.register(keys.registration(deviceName()))
+            // The list goes with the registration, so a renewed identity is limited from its first push.
+            val reply = api.register(keys.registration(deviceName()).copy(profiles = profiles.listFor(url)))
             val gateway = reply.gateway
             if (!reply.ok || gateway == null) {
                 _status.value = PushStatus(State.Failed, reply.error ?: "The gateway refused.")
@@ -143,8 +178,15 @@ class PushSetup(
                 return@withLock
             }
             api.registrationChanged()
+            val held = reply.profiles
+            val mine = profiles.listFor(url)
             _status.value = PushStatus(State.On, listOfNotNull(ready.detail,
                 if (reply.watching) null else "Restart the gateway's dashboard to start sending.",
+                if (reply.limitsProfiles && held == mine) null
+                else "The gateway holds ${held?.joinToString().takeUnless { it.isNullOrEmpty() } ?: "no list"} for this phone, not ${mine.joinToString()}.",
+                api.leftAlone.value.takeIf { it.isNotEmpty() }?.let {
+                    "Old copies of the plugin were left alone, as they are not on this phone's list: ${it.joinToString()}. They push every profile until they are updated."
+                },
             ).joinToString("\n").ifEmpty { null }, ready.update)
         } catch (e: CancellationException) {
             throw e
@@ -158,7 +200,7 @@ class PushSetup(
      * and updated only with [update], the user's ask. Null with the status set.
      */
     private suspend fun plugin(install: Boolean, update: Boolean): PluginState.Ready? =
-        when (val plugin = api.prepare(install, update = update) { _status.value = PushStatus(State.Working, it) }) {
+        when (val plugin = api.prepare(install, minimum = PushApi.MIN_PUSH_PLUGIN_VERSION, update = update) { _status.value = PushStatus(State.Working, it) }) {
             is PluginState.Ready -> plugin
             PluginState.Missing -> {
                 _status.value = PushStatus(State.NotInstalled)

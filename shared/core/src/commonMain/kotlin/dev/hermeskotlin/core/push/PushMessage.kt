@@ -70,6 +70,11 @@ data class PushRegistration(
     @SerialName("reply_topic") val replyTopic: String,
     @SerialName("enc_pub") val encPub: String,
     @SerialName("sig_pub") val sigPub: String,
+    /**
+     * The profiles this phone may be pushed. Sent with every registration so a renewed identity is limited from its
+     * first push; null leaves whatever list the gateway already has (a phone that sends none is not limited).
+     */
+    val profiles: List<String>? = null,
 )
 
 /** The gateway's answer: the keys the phone pins. */

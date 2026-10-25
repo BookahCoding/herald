@@ -3,6 +3,7 @@ package dev.hermeskotlin.android.notify
 import dev.hermeskotlin.core.bots.Bot
 import dev.hermeskotlin.core.connection.ConnectionState
 import dev.hermeskotlin.core.connection.GatewayConnection
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.rooms.RoomsApi
 import dev.hermeskotlin.core.rooms.roomNewLines
 import dev.hermeskotlin.core.rooms.roomOfTurnSession
@@ -33,6 +34,7 @@ class RoomNotifier(
     private val settings: SettingsStore,
     private val notifications: ChatNotifications,
     private val bots: BotNotifier,
+    private val profiles: ProfileGate,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -106,7 +108,10 @@ class RoomNotifier(
                 // The mark stays, so the next check tries these lines again.
                 continue
             }
-            val lines = roomNewLines(page.events, room.members, since).map { line ->
+            val lines = roomNewLines(page.events, room.members, since).filter { line ->
+                // A member whose profile may not notify this phone: its line is not told (the mark still moves on).
+                profiles.allowsHere(line.member?.profile ?: line.memberId)
+            }.map { line ->
                 val profile = line.member?.profile ?: line.memberId
                 val bot = bots.knownBot(profile) ?: Bot(name = profile, displayName = line.member?.displayName)
                 RoomNotice(bot, bots.picture(bot), line.text, (line.createdAt * 1000).toLong())

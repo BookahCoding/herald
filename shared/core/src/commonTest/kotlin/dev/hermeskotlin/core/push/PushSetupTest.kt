@@ -9,9 +9,11 @@ import dev.hermeskotlin.core.gateway.GatewayUrl
 import dev.hermeskotlin.core.gateway.SavedGateway
 import dev.hermeskotlin.core.network.HermesJson
 import dev.hermeskotlin.core.network.createHttpClient
+import dev.hermeskotlin.core.profiles.ProfileStore
 import dev.hermeskotlin.core.rpc.FakeTransport
 import dev.hermeskotlin.core.settings.SettingsStore
 import dev.hermeskotlin.core.storage.InMemoryKeyValueStore
+import dev.hermeskotlin.core.storage.KeyValueStore
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
@@ -25,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
@@ -83,6 +86,14 @@ class PushSetupTest {
         val failedChecks = mutableSetOf<String>()
         var profilesSupported = true
         var profileListFails = false
+
+        /** Whether the plugin lists `profile_allowlist` in its features (the one this Herald installs does). */
+        var profileFeature = true
+        var setProfilesFails = false
+
+        /** Each registered phone's list, as the plugin keeps it (null: no list). */
+        val lists = mutableMapOf<String, List<String>>()
+        val registrations = mutableListOf<PushRegistration>()
         val calls = mutableListOf<JsonObject>()
         val registered = mutableSetOf<String>()
 
@@ -149,6 +160,7 @@ class PushSetupTest {
                         installed = true
                         enabled = true
                         version = latest
+                        profileFeature = true
                         """{"ok":true}"""
                     }
                 }
@@ -172,15 +184,33 @@ class PushSetupTest {
                         put("ok", true)
                         put("version", version)
                         put("gateway", HermesJson.encodeToJsonElement(PushGateway.serializer(), gatewayKeys))
+                        put("features", features())
                     }
                 }
                 "register" -> {
-                    registered += HermesJson.decodeFromString(PushRegistration.serializer(), rest).deviceId
+                    val registration = HermesJson.decodeFromString(PushRegistration.serializer(), rest)
+                    registrations += registration
+                    registered += registration.deviceId
+                    // A list in the registration is stored first; none leaves an existing one.
+                    registration.profiles?.let { lists[registration.deviceId] = it.sorted() }
                     buildJsonObject {
                         put("ok", true)
                         put("version", version)
                         put("watching", true)
                         put("gateway", HermesJson.encodeToJsonElement(PushGateway.serializer(), gatewayKeys))
+                        put("features", features())
+                        put("profiles", lists[registration.deviceId]?.let { l -> JsonArray(l.map(::JsonPrimitive)) } ?: JsonNull)
+                    }
+                }
+                "profiles" -> {
+                    val body = HermesJson.parseToJsonElement(rest.substringAfter(' ')) as JsonObject
+                    val device = body["device_id"]!!.jsonPrimitive.content
+                    if (setProfilesFails || device !in registered) {
+                        buildJsonObject { put("ok", false); put("error", "not registered") }
+                    } else {
+                        val list = (body["profiles"] as JsonArray).map { it.jsonPrimitive.content }.sorted()
+                        lists[device] = list
+                        buildJsonObject { put("ok", true); put("profiles", JsonArray(list.map(::JsonPrimitive))) }
                     }
                 }
                 "unregister" -> buildJsonObject { put("ok", registered.remove(rest)) }
@@ -192,6 +222,8 @@ class PushSetupTest {
             })
         }
 
+        private fun features() = JsonArray(if (profileFeature) listOf(JsonPrimitive(PROFILE_ALLOWLIST)) else emptyList())
+
         fun actions(): List<String> = calls.mapNotNull { call ->
             (call["params"] as? JsonObject)?.let { p -> p["action"]?.jsonPrimitive?.contentOrNull ?: p["arg"]?.jsonPrimitive?.contentOrNull?.substringBefore(' ') }
         }
@@ -199,18 +231,30 @@ class PushSetupTest {
 
     private data class Copy(val version: String, val enabled: Boolean = true, val source: String = "git")
 
-    private class Setup(val setup: PushSetup, val connection: GatewayConnection, val settings: SettingsStore, val gateways: GatewayRepository)
+    private class Setup(
+        val setup: PushSetup,
+        val connection: GatewayConnection,
+        val settings: SettingsStore,
+        val gateways: GatewayRepository,
+        val profiles: NotificationProfiles,
+        val api: PushApi,
+        val profileStore: KeyValueStore,
+    )
 
-    private suspend fun TestScope.setup(keys: PushKeys, url: String = "https://a.example"): Setup {
+    private suspend fun TestScope.setup(keys: PushKeys, url: String = "https://a.example", limitCopies: Boolean = false): Setup {
         val cookies = PersistentCookiesStorage(InMemoryKeyValueStore())
         val engine = MockEngine { respond("""{"ticket":"T","ttl_seconds":30}""", headers = headersOf(HttpHeaders.ContentType, "application/json")) }
         val connection = GatewayConnection(AuthApi(createHttpClient(engine, cookies), cookies), { _, _ -> transports.removeFirst() }, backgroundScope)
         val settings = SettingsStore(InMemoryKeyValueStore(), backgroundScope)
         settings.settings.filterNotNull().first()
         val gateways = GatewayRepository(InMemoryKeyValueStore()).apply { save(SavedGateway(url)) }
-        val setup = PushSetup(PushApi(connection), keys, connection, gateways, settings, backgroundScope) { "Pixel" }
+        val profileStore = InMemoryKeyValueStore()
+        val profiles = NotificationProfiles(profileStore, gateways, ProfileStore(InMemoryKeyValueStore()), backgroundScope)
+        // Off for the older scenarios, whose made-up profiles are not on any list; on where the list is the point.
+        val api = PushApi(connection, mayUpdateCopy = { if (limitCopies) profiles.allowsHere(it) else true })
+        val setup = PushSetup(api, keys, connection, gateways, settings, profiles, backgroundScope) { "Pixel" }
         setup.start()
-        return Setup(setup, connection, settings, gateways)
+        return Setup(setup, connection, settings, gateways, profiles, api, profileStore)
     }
 
     private val transports = ArrayDeque<FakeTransport>()
@@ -280,16 +324,145 @@ class PushSetupTest {
     }
 
     @Test
-    fun aWorkingButOlderPluginIsOfferedAnUpdateAndKeepsWorking() = runTest {
-        val keys = FakeKeys()
-        val s = setup(keys)
-        val gateway = FakeGateway(installed = true, version = PushApi.MIN_PLUGIN_VERSION)
+    fun theUpstreamPluginPushesEveryProfileSoItIsNotRegisteredWith() = runTest {
+        val s = setup(FakeKeys())
+        val gateway = FakeGateway(installed = true, version = "0.5.1").apply { profileFeature = false }
         connect(s, gateway)
         s.setup.enable()
 
-        assertEquals(listOf("info", "register"), gateway.actions())
+        assertEquals(PushStatus.State.Outdated, s.setup.status.value.state)
+        assertEquals(PluginUpdate("0.5.1", PushApi.PLUGIN_VERSION, needed = true), s.setup.status.value.update)
+        assertTrue(gateway.registered.isEmpty())
+        // The pinned plugin is this app's own, not the original's.
+        assertTrue(PushApi.PLUGIN_REPO.startsWith("https://github.com/BookahCoding/"))
+        assertEquals(PushApi.PLUGIN_VERSION, PushApi.MIN_PUSH_PLUGIN_VERSION)
+    }
+
+    @Test
+    fun aPluginOfTheRightVersionWithoutTheFeatureIsNotThePluginAndGetsReplaced() = runTest {
+        val s = setup(FakeKeys())
+        // Say, another 0.6.x from somewhere else: the version alone would pass.
+        val gateway = FakeGateway(installed = true, version = PushApi.PLUGIN_VERSION).apply { profileFeature = false }
+        connect(s, gateway)
+        s.setup.enable()
+
+        assertEquals(PushStatus.State.Outdated, s.setup.status.value.state)
+        assertTrue(gateway.registered.isEmpty())
+        s.setup.updatePlugin()
+        val reinstall = gateway.calls.first { (it["params"] as? JsonObject)?.get("action")?.jsonPrimitive?.contentOrNull == "install" }["params"] as JsonObject
+        assertEquals(PushApi.PLUGIN_REF, reinstall["ref"]!!.jsonPrimitive.content)
+        assertEquals(PushApi.PLUGIN_REPO, reinstall["identifier"]!!.jsonPrimitive.content)
         assertEquals(PushStatus.State.On, s.setup.status.value.state)
-        assertEquals(PluginUpdate(PushApi.MIN_PLUGIN_VERSION, PushApi.PLUGIN_VERSION, needed = false), s.setup.status.value.update)
+        assertEquals(setOf("device-1"), gateway.registered)
+    }
+
+    @Test
+    fun theFirstRegistrationCarriesTheDefaultListSoNothingElseIsPushed() = runTest {
+        val s = setup(FakeKeys())
+        val gateway = FakeGateway(installed = true)
+        connect(s, gateway)
+        s.setup.enable()
+
+        assertEquals(listOf("default"), gateway.registrations.single().profiles)
+        assertEquals(listOf("default"), gateway.lists["device-1"])
+        assertEquals(PushStatus.State.On, s.setup.status.value.state)
+        assertNull(s.setup.status.value.detail)
+    }
+
+    @Test
+    fun aChangedListIsGivenToTheGatewayAndKeptOnThePhone() = runTest {
+        val s = setup(FakeKeys())
+        val gateway = FakeGateway(installed = true)
+        connect(s, gateway)
+        s.setup.enable()
+
+        assertNull(s.setup.saveProfiles("https://a.example", listOf("default", "alice")))
+        assertEquals(listOf("alice", "default"), gateway.lists["device-1"])
+        assertEquals(setOf("alice", "default"), s.profiles.allowed("https://a.example"))
+        // Not on the list: a profile made later, and one never heard of.
+        assertFalse(s.profiles.allows("https://a.example", "made-later"))
+        assertFalse(s.profiles.allows("https://a.example", "froebel"))
+    }
+
+    @Test
+    fun aGatewayThatRefusesTheListIsToldAboutOnTheNextConnection() = runTest {
+        val s = setup(FakeKeys())
+        val gateway = FakeGateway(installed = true)
+        connect(s, gateway)
+        s.setup.enable()
+
+        gateway.setProfilesFails = true
+        val problem = s.setup.saveProfiles("https://a.example", listOf("default", "alice"))
+        assertTrue(problem!!.contains("didn't take it"), problem)
+        // Kept on the phone regardless, where it already applies.
+        assertEquals(setOf("alice", "default"), s.profiles.allowed("https://a.example"))
+    }
+
+    @Test
+    fun aReconnectToAGatewayThatLostTheListGivesItBack() = runTest {
+        val s = setup(FakeKeys())
+        val first = FakeGateway(installed = true)
+        connect(s, first)
+        s.setup.enable()
+        s.setup.saveProfiles("https://a.example", listOf("default", "alice"))
+        s.connection.stop()
+        s.connection.state.first { it !is ConnectionState.Connected }
+
+        val restarted = FakeGateway(installed = true)
+        connect(s, restarted)
+        until { restarted.registrations.isNotEmpty() }
+        assertEquals(listOf("alice", "default"), restarted.registrations.single().profiles)
+        assertEquals(listOf("alice", "default"), restarted.lists["device-1"])
+    }
+
+    @Test
+    fun aRenewedIdentityRegistersWithTheSameListFromItsFirstPush() = runTest {
+        val keys = FakeKeys()
+        keys.pin("https://old.example", gatewayKeys)
+        val s = setup(keys, url = "https://a.example")
+        s.profiles.set("https://a.example", listOf("default", "alice"))
+        val gateway = FakeGateway(installed = true)
+        connect(s, gateway)
+        s.setup.enable()
+
+        // The old identity is retired and a new one (device-2) registers, already limited.
+        assertEquals(setOf("device-2"), gateway.registered)
+        assertEquals(listOf("alice", "default"), gateway.registrations.single().profiles)
+    }
+
+    @Test
+    fun theListSurvivesTheAppBeingRestarted() = runTest {
+        val s = setup(FakeKeys())
+        val gateway = FakeGateway(installed = true)
+        connect(s, gateway)
+        s.setup.enable()
+        s.setup.saveProfiles("https://a.example", listOf("default", "alice"))
+        withTimeout(10_000) { while (s.profileStore.get("notify.profiles.v1") == null) delay(10) }
+
+        // A new process: the same stored data, nothing else.
+        val reopened = NotificationProfiles(s.profileStore, s.gateways, ProfileStore(InMemoryKeyValueStore()), backgroundScope)
+        until { reopened.lists.value != null }
+        assertEquals(setOf("alice", "default"), reopened.allowed("https://a.example"))
+        assertFalse(reopened.allows("https://a.example", "froebel"))
+    }
+
+    @Test
+    fun updatingThePluginLeavesAProfileNotOnTheListAlone() = runTest {
+        val s = setup(FakeKeys(), limitCopies = true)
+        val gateway = FakeGateway(installed = true, version = "0.5.1").apply {
+            profileFeature = false
+            profiles["default"] = Copy("0.5.1")
+            profiles["froebel"] = Copy("0.5.1")
+        }
+        connect(s, gateway)
+        s.setup.enable()
+        s.setup.updatePlugin()
+
+        assertEquals(Copy(PushApi.PLUGIN_VERSION), gateway.profiles["default"])
+        // Not on the list: its plugin files are not touched.
+        assertEquals(Copy("0.5.1"), gateway.profiles["froebel"])
+        assertEquals(listOf("froebel (0.5.1)"), s.api.leftAlone.value)
+        assertTrue(s.setup.status.value.detail?.contains("froebel") == true, "status was ${s.setup.status.value}")
     }
 
     @Test

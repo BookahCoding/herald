@@ -15,6 +15,8 @@ import dev.hermeskotlin.core.settings.SettingsStore
 import java.time.LocalTime
 import dev.hermeskotlin.android.push.PushStore
 import dev.hermeskotlin.core.inbox.InboxApi
+import dev.hermeskotlin.core.push.NotificationProfiles
+import dev.hermeskotlin.core.push.ProfileGate
 import dev.hermeskotlin.core.push.PushKeys
 import dev.hermeskotlin.core.push.PushSetup
 import dev.hermeskotlin.core.voice.VoiceKeepAlive
@@ -30,7 +32,7 @@ val notifyModule = module {
         val koin = getKoin()
         // A voice chat or a call already on, here or from the watch, has you: a question there is asked on it, and
         // one elsewhere waits as a notification, not rung over it.
-        ChatNotifications(androidContext(), get()).apply {
+        ChatNotifications(androidContext(), get(), get<ProfileGate>()).apply {
             voiceOn = { koin.get<VoiceCallKeeper>().holding || koin.get<WatchRelay>().onCall }
             quietUntil = {
                 val now = LocalTime.now()
@@ -41,14 +43,14 @@ val notifyModule = module {
     // Why the agent called, from the call picked up on the watch to the call the watch starts.
     single { CallOpeners() }
     single { VoiceCallKeeper(androidContext()) } bind VoiceKeepAlive::class
-    single { ChatNotifier(androidContext(), get(), get(), get(), get(), get(), get(), get<WatchRelay>().busy) }
-    single { WatchNotifier(get(), get(), get(), get(), get(), get(), get(), get()) }
-    single { BotNotifier(androidContext(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    single { RoomNotifier(get(), get(), get(), get(), get(), get()) }
+    single { ChatNotifier(androidContext(), get(), get(), get(), get(), get(), get(), get<ProfileGate>(), get<WatchRelay>().busy) }
+    single { WatchNotifier(get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
+    single { BotNotifier(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
+    single { RoomNotifier(get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
     single { PushStore(androidContext()) } bind PushKeys::class
-    single { InboxApi(get(), get()) }
-    single { PushListener(get(), get(), get(), get(), get(), get(), get(), get(), get(), get()) }
-    single { PushSetup(get(), get(), get(), get(), get(), get(), deviceName = { Build.MODEL ?: "Android phone" }) }
+    single { InboxApi(get(), get(), get<NotificationProfiles>()) }
+    single { PushListener(get(), get(), get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
+    single { PushSetup(get(), get(), get(), get(), get(), get<NotificationProfiles>(), get(), deviceName = { Build.MODEL ?: "Android phone" }) }
     single { PhoneConfirmations(androidContext()) }
     single { Geofences(androidContext(), get(), get()) } bind WatchedPlaces::class
     single { ChatTargets(get(), get(), get(), get()) }
