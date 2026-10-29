@@ -14,5 +14,8 @@ class ModelNamesTest {
         assertEquals("DeepSeek V4", displayModelName("deepseek-v4"))
         assertEquals("ChatGPT subscription", displayProviderName("openai-codex", "OpenAI Codex"))
         assertEquals("My Relay", displayProviderName("custom:relay", "My Relay"))
+        assertEquals("Custom", displayProviderName("custom", "Custom endpoint"))
+        assertEquals("Custom", displayProviderName("custom", "custom"))
+        assertEquals("My GPU", displayProviderName("custom", "My GPU"))
     }
 }

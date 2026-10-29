@@ -100,14 +100,38 @@ class ModelCatalogTest {
     }
 
     @Test
-    fun aRepeatedProviderSlugIsKeptOnce() {
+    fun aRepeatedProviderSlugKeepsEveryModel() {
         val catalog = parse(
             """{"providers":[
                 {"slug":"custom","name":"First","models":["m1"]},
                 {"slug":"custom","name":"Second","models":["m1","m2"]}
             ]}""",
         )
-        assertEquals(listOf("First"), catalog.providers.map { it.name })
+        assertEquals(listOf("Second"), catalog.providers.map { it.name })
+        assertEquals(listOf("m1", "m2"), catalog.providers.single().models.map { it.id })
+    }
+
+    @Test
+    fun aKeylessCustomStubDoesNotHideTheCustomCatalog() {
+        // The gateway lists the live endpoint first (authenticated false, often only the model in use) and the
+        // user's Custom catalog second, both under slug custom. v1.0.1 kept the stub and dropped the catalog.
+        val usable = parse(
+            """{"providers":[
+              {"slug":"custom","name":"Custom endpoint","models":["only-current"],"authenticated":false,"is_user_defined":true},
+              {"slug":"custom","name":"Custom","models":["llama","qwen","only-current"],"authenticated":true,"is_user_defined":true,"pricing":{"llama":{"free":true}}},
+              {"slug":"openrouter","name":"OpenRouter","models":["vendor/free"],"pricing":{"vendor/free":{"free":true}}}
+            ]}""",
+        ).withChosen(setOf("openrouter")).usable()
+        val custom = usable.providers.first { it.slug == "custom" }
+        assertEquals("Custom", custom.name)
+        assertEquals(listOf("only-current", "llama", "qwen"), custom.models.map { it.id })
+        assertTrue(custom.keyless && custom.chosen)
+        assertEquals("Free", custom.models.first { it.id == "llama" }.price)
+        val sections = usable.pickerSections("", PickerScope.All)
+        // OpenRouter's only model is free, so it has no paid section; the local models stay under Custom, including llama.
+        assertEquals(listOf("Custom", FREE_SECTION), sections.map { it.title })
+        assertEquals(listOf("only-current", "llama", "qwen"), sections[0].models.flatMap { row -> row.variants.map { it.id } })
+        assertEquals(listOf("vendor/free"), sections[1].models.flatMap { row -> row.variants.map { it.id } })
     }
 
     @Test

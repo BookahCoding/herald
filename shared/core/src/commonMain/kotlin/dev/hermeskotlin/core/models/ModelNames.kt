@@ -15,9 +15,19 @@ fun displayModelName(id: String): String {
     }
 }
 
-/** Desktop's provider labels where the slug reads badly. */
-fun displayProviderName(slug: String, fallback: String? = null): String =
-    PROVIDER_NAMES[slug.trim().lowercase()] ?: fallback?.takeIf { it.isNotBlank() } ?: slug
+/**
+ * Desktop's provider labels where the slug reads badly. A bare `custom` row the gateway names
+ * "Custom endpoint" (or nothing) is the Custom category the chat picker used to list local models under.
+ */
+fun displayProviderName(slug: String, fallback: String? = null): String {
+    PROVIDER_NAMES[slug.trim().lowercase()]?.let { return it }
+    val name = fallback?.takeIf { it.isNotBlank() } ?: slug
+    if (slug.trim().equals("custom", ignoreCase = true) && name.trim().lowercase() in GENERIC_CUSTOM_NAMES) return "Custom"
+    return name
+}
+
+/** Names a bare `custom` row uses when the user hasn't given the endpoint one. */
+private val GENERIC_CUSTOM_NAMES = setOf("custom", "custom endpoint")
 
 private val PROVIDER_NAMES = mapOf(
     "anthropic" to "Anthropic",

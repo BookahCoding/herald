@@ -71,8 +71,9 @@ fun ModelCatalog.offersAny(keys: Collection<String>): Boolean =
  * Without a query, [PickerScope.Yours] lists the [starred] models (in the order they were starred), then the
  * [current] model (a [starKey]) and the [recent] ones. [PickerScope.All] lists each [ModelProvider.chosen]
  * provider's paid models under its name, then every free model under [FREE_SECTION], the same model from
- * several providers as one row. [PickerScope.Free] is that last section alone; a provider's scope lists all of
- * its models.
+ * several providers as one row. A [ModelProvider.keyless] provider keeps every model under its own name (a bare
+ * `custom` row reads as Custom), including ones the gateway priced free, so a local catalog isn't emptied into
+ * the free section. [PickerScope.Free] is that last section alone; a provider's scope lists all of its models.
  *
  * A query ranks models by how well their name or id matches: a name that starts with it first, then one with a
  * word that does, then one that has it anywhere. A query with digits also matches letters in order, so "op55"
@@ -98,8 +99,13 @@ fun ModelCatalog.pickerSections(
             listOf(PickerSection("Starred", starredRows), PickerSection("Recent", recentRows.take(RECENT_SHOWN)))
         }
         scope == PickerScope.All -> providers.filter { it.chosen }.map { p ->
-            PickerSection(displayProviderName(p.slug, p.name), pickerModels(p.slug) { !it.isFree }, provider = p.slug)
-        } + PickerSection(FREE_SECTION, pickerModels { it.isFree })
+            // A local or custom endpoint often has no price, or is priced free. Either way it stays under its
+            // own heading (Custom, for a bare custom row) instead of vanishing into the free section.
+            PickerSection(displayProviderName(p.slug, p.name), pickerModels(p.slug) { !it.isFree || p.keyless }, provider = p.slug)
+        } + PickerSection(
+            FREE_SECTION,
+            pickerModels { model -> model.isFree && providers.none { it.slug == model.provider && it.keyless } },
+        )
         scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels { it.isFree }))
         else -> listOf(PickerSection(null, models, provider = slug))
     }
