@@ -154,7 +154,7 @@ data class ModelCatalog(
                     authType = authType,
                     keyless = keyless,
                 )
-            }.distinctBy { it.slug } // Picks and stars name a provider by slug: a second one could never be told apart.
+            }.mergeSameSlug() // Picks and stars name a provider by slug, so rows that share one are a single provider.
             return ModelCatalog(
                 providers = providers,
                 currentModel = result.string("model")?.takeIf { it.isNotBlank() },
@@ -319,6 +319,55 @@ internal fun isKeylessProvider(slug: String, name: String, authType: String?, ke
     val type = authType?.trim()?.lowercase()
     return type.isNullOrEmpty() || type == "api_key" && keyEnv.isNullOrBlank()
 }
+
+/**
+ * Rows that share a slug are one provider: stars and picks can't tell them apart. Hermes can send a
+ * keyless stub (`custom` / "Custom endpoint", often just the model in use, `authenticated` false) ahead of
+ * the user's Custom catalog. Keeping only the first row, which is what a plain distinct did, dropped the
+ * catalog and the Custom category with it. The merged row keeps every model, and takes its name from the
+ * row the user named — "Custom" over the stub's "Custom endpoint" — else from the row with the most models.
+ */
+private fun List<ModelProvider>.mergeSameSlug(): List<ModelProvider> {
+    if (size < 2) return this
+    val order = mutableListOf<String>()
+    val groups = LinkedHashMap<String, MutableList<ModelProvider>>()
+    for (provider in this) {
+        val key = provider.slug
+        if (groups.putIfAbsent(key, mutableListOf(provider)) == null) order += key
+        else groups.getValue(key) += provider
+    }
+    return order.map { key ->
+        val rows = groups.getValue(key)
+        if (rows.size == 1) rows.single() else rows.merge()
+    }
+}
+
+private fun List<ModelProvider>.merge(): ModelProvider {
+    val models = LinkedHashMap<String, ModelOption>()
+    for (model in flatMap { it.models }) {
+        val existing = models[model.id]
+        models[model.id] = when {
+            existing == null -> model
+            existing.price == null && model.price != null -> existing.copy(price = model.price)
+            else -> existing
+        }
+    }
+    val merged = models.values.toList()
+    val named = firstOrNull { it.name.equals("Custom", ignoreCase = true) }
+    val specific = filter { it.name.isNotBlank() && it.name.trim().lowercase() !in GENERIC_PROVIDER_NAMES }
+    val richest = (specific.ifEmpty { this }).maxBy { it.models.size }
+    return richest.copy(
+        name = named?.name?.takeIf { it.isNotBlank() }?.let { if (it.equals("custom", ignoreCase = true)) "Custom" else it } ?: richest.name,
+        models = merged,
+        featured = flatMap { it.featured }.distinct().filter { id -> merged.any { it.id == id } },
+        warning = richest.warning,
+        authType = firstNotNullOfOrNull { it.authType },
+        keyless = any { it.keyless },
+    )
+}
+
+/** Names a gateway uses for a row that isn't the user's own label. */
+private val GENERIC_PROVIDER_NAMES = setOf("custom", "custom endpoint", "local")
 
 private fun JsonObject.strings(key: String): List<String> =
     (this[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull }
