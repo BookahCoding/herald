@@ -19,6 +19,7 @@ dependencyResolutionManagement {
 }
 
 include(":androidApp")
+include(":liveproxy")
 include(":shared:core")
 include(":shared:designsystem")
 include(":shared:ui")

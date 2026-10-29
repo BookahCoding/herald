@@ -18,6 +18,8 @@ import dev.hermeskotlin.core.voice.AndroidSpeechPlayer
 import dev.hermeskotlin.core.voice.ReadAloudVoices
 import dev.hermeskotlin.core.voice.FileReadAloudVoices
 import dev.hermeskotlin.core.voice.LiveCalls
+import dev.hermeskotlin.core.qwen.AndroidQwenLiveEngine
+import dev.hermeskotlin.core.qwen.QwenLiveEngine
 import dev.hermeskotlin.core.voice.AndroidVoiceRecorder
 import dev.hermeskotlin.core.voice.SpeechPlayer
 import dev.hermeskotlin.core.voice.VoiceRecorder
@@ -37,6 +39,7 @@ actual val platformModule: Module = module {
     // One per screen, like the recorder: the chat and the assistant panel each stop only their own.
     factory<DeviceDictation> { AndroidDeviceDictation(androidContext()) }
     single { LiveCalls { AndroidLiveCall(androidContext()) } }
+    single<QwenLiveEngine> { AndroidQwenLiveEngine() }
     single {
         val keyguard = androidContext().getSystemService(KeyguardManager::class.java)
         DeviceLock { keyguard?.isKeyguardLocked == true }

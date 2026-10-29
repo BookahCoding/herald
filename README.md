@@ -33,6 +33,7 @@ the app talks to your gateway directly.
 - [Screenshots](#screenshots)
 - [Install](#install)
 - [Requirements](#requirements)
+- [Qwen live chat](#qwen-live-chat)
 - [Privacy](#privacy)
 - [Community](#community)
 - [Development](#development)
@@ -51,6 +52,7 @@ the app talks to your gateway directly.
 - Model, thinking level, fast mode and profile per chat, with starred and recent models
 - Photos, camera, files and PDFs; pictures and files the agent sends back
 - Dictation (on the device or through the gateway), hands-free voice chat and live voice calls
+- Live speech-to-speech with Qwen-Audio through a proxy you run, so the DashScope key never ships in the app
 
 **Control**
 - Approvals, questions, sudo, secret and password-manager prompts, also from a notification
@@ -108,6 +110,42 @@ The full feature list, and what's planned, is in the [roadmap](docs/ROADMAP.md).
 
 If something doesn't connect, **Settings → Check connection** tests the server, the sign-in and the live
 connection one at a time and says what to fix.
+
+## Qwen live chat
+
+Settings → Voice → Open live chat is a speech-to-speech session with Alibaba Cloud Model Studio's
+Qwen-Audio realtime model. The phone captures the microphone, streams it to a small proxy in this
+repo, and plays the PCM audio that comes back, with a live transcript. Start, Stop and Interrupt
+are on that screen. Nothing in the app contains the DashScope key.
+
+The console lists the model as **Qwen-Audio-3.1-Realtime**. That label is not an API id. The
+documented ids are `qwen-audio-3.1-realtime-plus` and `qwen-audio-3.1-realtime-flash`. The proxy
+defaults to `qwen-audio-3.1-realtime-plus` (the id in the official quick start) and you can change it.
+
+The international region is Singapore. With no workspace id, the proxy uses the existing
+international endpoint `wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime`. Set a workspace id
+to use the workspace domain `wss://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/api-ws/v1/realtime`.
+
+On the machine the phone can reach:
+
+```bash
+export DASHSCOPE_API_KEY="your-model-studio-key"   # never put this in the app
+export HERALD_LIVE_PROXY_TOKEN="a long random string"
+export DASHSCOPE_REGION="ap-southeast-1"            # optional, this is the default
+export DASHSCOPE_WORKSPACE_ID=""                    # optional; set it for the workspace domain
+export DASHSCOPE_REALTIME_MODEL="qwen-audio-3.1-realtime-plus"  # or qwen-audio-3.1-realtime-flash
+export DASHSCOPE_REALTIME_VOICE="longanqian_v3.1"   # optional
+export HERALD_LIVE_BIND="0.0.0.0"                   # optional; 127.0.0.1 needs no proxy token
+export HERALD_LIVE_PORT="8787"                      # optional
+./gradlew :liveproxy:run
+```
+
+`HERALD_LIVE_PROXY_TOKEN` is required when the proxy listens beyond localhost, so an open port can't
+spend the key. In the app, set **Live proxy address** to `http://<that-machine>:8787` and **Proxy
+token** to the same string. The token is not the API key. `ws://` on your own network is allowed;
+for a proxy on the public internet, put TLS in front of it and use an `https://` address.
+
+`GET /health` on the proxy reports the model and region and does not include the key.
 
 ## Privacy
 
