@@ -91,6 +91,13 @@ data class AppSettings(
     /** The gateway's Next Prompt plugin's suggested next message, over the composer once a turn ends. */
     val suggestedReplies: Boolean = true,
     val voicePause: VoicePause = VoicePause.Normal,
+    /**
+     * Address of the Qwen live proxy (`http://host:8787`). Blank until it's set. The DashScope key is not stored
+     * here; the proxy reads `DASHSCOPE_API_KEY` itself.
+     */
+    val qwenProxyUrl: String = "",
+    /** Shared secret for that proxy (`HERALD_LIVE_PROXY_TOKEN`). Not the DashScope key. */
+    val qwenProxyToken: String = "",
     /** The mic for dictation in the composer and on an empty chat. Off, it goes, and the model name gets the room. */
     val dictation: Boolean = true,
     val dictationEngine: DictationEngine = DictationEngine.Device,

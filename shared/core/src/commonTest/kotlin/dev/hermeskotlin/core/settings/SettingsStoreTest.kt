@@ -27,6 +27,23 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun theLiveProxyAddressIsRememberedAndStartsBlank() = runTest {
+        val disk = InMemoryKeyValueStore()
+        disk.put("settings.v1", """{"theme":"Dark"}""")
+        val first = SettingsStore(disk, backgroundScope)
+        assertEquals("", first.settings.filterNotNull().first().qwenProxyUrl)
+        assertEquals("", first.settings.filterNotNull().first().qwenProxyToken)
+
+        first.update { it.copy(qwenProxyUrl = "http://10.0.0.8:8787", qwenProxyToken = "phone-token") }
+        advanceUntilIdle()
+
+        val restored = SettingsStore(disk, backgroundScope).settings.filterNotNull().first()
+        assertEquals("http://10.0.0.8:8787", restored.qwenProxyUrl)
+        assertEquals("phone-token", restored.qwenProxyToken)
+        assertEquals(ThemeMode.Dark, restored.theme)
+    }
+
+    @Test
     fun dictationIsOnUnlessTurnedOff() = runTest {
         val disk = InMemoryKeyValueStore()
         // Settings saved before the option existed keep the mic.

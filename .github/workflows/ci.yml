@@ -38,7 +38,7 @@ jobs:
       - name: Test, build and lint
         run: |
           build() {
-            ./gradlew --no-daemon --continue               :shared:core:testAndroidHostTest :shared:designsystem:testAndroidHostTest :shared:ui:testAndroidHostTest :shared:wearlink:testAndroidHostTest               :androidApp:assembleDebug :androidApp:lintDebug :wearApp:testDebugUnitTest :wearApp:assembleDebug :wearApp:lintDebug
+            ./gradlew --no-daemon --continue               :liveproxy:test :shared:core:testAndroidHostTest :shared:designsystem:testAndroidHostTest :shared:ui:testAndroidHostTest :shared:wearlink:testAndroidHostTest               :androidApp:assembleDebug :androidApp:lintDebug :wearApp:testDebugUnitTest :wearApp:assembleDebug :wearApp:lintDebug
           }
           build || build
 

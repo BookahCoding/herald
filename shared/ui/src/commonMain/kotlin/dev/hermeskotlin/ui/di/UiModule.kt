@@ -18,6 +18,7 @@ import dev.hermeskotlin.ui.rooms.RoomsViewModel
 import dev.hermeskotlin.ui.sessions.OtherChatsViewModel
 import dev.hermeskotlin.ui.sessions.SessionsViewModel
 import dev.hermeskotlin.ui.settings.PhoneToolsViewModel
+import dev.hermeskotlin.ui.qwen.QwenLiveViewModel
 import dev.hermeskotlin.ui.settings.SettingsViewModel
 import dev.hermeskotlin.ui.signin.SignInViewModel
 import dev.hermeskotlin.core.phone.NoWatchedPlaces
@@ -57,6 +58,7 @@ val uiModule = module {
         )
     }
     viewModelOf(::SettingsViewModel)
+    viewModelOf(::QwenLiveViewModel)
     // Watched places are the platform's; one without them shows none.
     viewModel { PhoneToolsViewModel(get(), get(), getOrNull<WatchedPlaces>() ?: NoWatchedPlaces) }
 }
