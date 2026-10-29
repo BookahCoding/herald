@@ -372,9 +372,15 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
     val openIds = setOfNotNull(openSessionId, route.target.storedSessionId, openBot?.canonicalSession?.id, openBot?.canonicalSession?.openId)
     LaunchedEffect(openIds) { others.setOpenChat(openIds) }
     // Bot Chats are hidden sessions, so the chat list doesn't have them; the roster does, with what's unread.
+    // A roster names which profiles are bots the user made, so the next launch won't reopen anyone else's Bot Chat.
+    LaunchedEffect(roster.loading, roster.error, roster.unsupported, roster.all, profileRoster?.launch, profileRoster?.launchKnown) {
+        if (!roster.loading && roster.error == null && !roster.unsupported) {
+            app.noteRoster(roster.all, profileRoster?.takeIf { it.launchKnown }?.launch)
+        }
+    }
     LaunchedEffect(roster.all, roster.unread) {
         others.setBotChats(
-            roster.all.filterNot { it.meta.hidden }.mapNotNull { bot ->
+            roster.all.filter { it.hasBotIdentity && !it.meta.hidden }.mapNotNull { bot ->
                 val chat = bot.canonicalSession ?: return@mapNotNull null
                 val id = chat.openId ?: return@mapNotNull null
                 OtherChatRow(
@@ -393,11 +399,20 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
         others.otherChatEvents.collect { if (it.waiting) haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
     }
 
+    /** [name] as the chats list stores a profile: null for the one the gateway launches as. */
+    fun chatsProfileOf(name: String): String? {
+        val launch = profileRoster?.takeIf { it.launchKnown }?.launch ?: Bot.DEFAULT
+        return name.takeIf { !it.equals(launch, ignoreCase = true) }
+    }
+
     /** Opens another chat as a sidebar tap does, with where its new messages start. */
+
     fun openOther(id: String, title: String, bot: String?) {
         val botOf = bot?.let { name -> roster.all.firstOrNull { it.name == name } }
         // A bot's chat opens as its sidebar row does, which finds where its new messages start.
-        if (botOf != null) bots.open(botOf) { storedId, readUpTo -> app.openBotChat(botOf, storedId, readUpTo) }
+        // A profile that only looks like a bot opens as a normal session; its Bot Chat stays put.
+        if (botOf != null && botOf.hasBotIdentity) bots.open(botOf) { storedId, readUpTo -> app.openBotChat(botOf, storedId, readUpTo) }
+        else if (botOf != null) app.reopenProfile(chatsProfileOf(botOf.name))
         else app.openSession(id, title, others.openListed(id))
         closeDrawerToChat()
     }
@@ -432,8 +447,13 @@ private fun Home(route: Route.Chat, app: AppViewModel, onOpenGateways: () -> Uni
                     app.switchProfile(it)
                     closeDrawerToChat()
                 },
+                onOpenProfile = { profile ->
+                    app.reopenProfile(profile)
+                    closeDrawerToChat()
+                },
                 onOpenBot = { bot, storedSessionId, readUpTo ->
-                    if (storedSessionId != openSessionId || route.target.bot == null) app.openBotChat(bot, storedSessionId, readUpTo)
+                    if (!bot.hasBotIdentity) app.reopenProfile(chatsProfileOf(bot.name))
+                    else if (storedSessionId != openSessionId || route.target.bot == null) app.openBotChat(bot, storedSessionId, readUpTo)
                     closeDrawerToChat()
                 },
                 onOpenBotSession = { bot, id, title ->

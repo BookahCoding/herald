@@ -203,6 +203,42 @@ class ChatViewModelTest {
     }
 
     @Test
+    fun newAndResetStartASessionInAProfileChatAndCompressABotChat() = runTest(dispatcher) {
+        val (vm, _) = viewModel()
+        val requests = mutableListOf<ChatRequest>()
+        val collecting = launch { vm.requests.collect { requests += it } }
+        vm.open(ChatTarget(gateway, "s1", "Notes", profile = "froebel"))
+        runCurrent()
+
+        vm.composer.setTextAndPlaceCursorAtEnd("/new")
+        vm.send()
+        runCurrent()
+        assertEquals(listOf<ChatRequest>(ChatRequest.NewChat), requests)
+
+        requests.clear()
+        vm.composer.setTextAndPlaceCursorAtEnd("/reset")
+        vm.send()
+        runCurrent()
+        assertEquals(listOf<ChatRequest>(ChatRequest.NewChat), requests)
+
+        requests.clear()
+        vm.open(ChatTarget(gateway, "b1", "Scribe", profile = "scribe", bot = scribe))
+        runCurrent()
+        vm.composer.setTextAndPlaceCursorAtEnd("/new")
+        vm.send()
+        runCurrent()
+        assertTrue(requests.isEmpty())
+        assertEquals("/compress", vm.state.value.messages.filterIsInstance<ChatMessage.Command>().last().command)
+
+        vm.composer.setTextAndPlaceCursorAtEnd("/reset")
+        vm.send()
+        runCurrent()
+        assertTrue(requests.isEmpty())
+        assertEquals("/compress", vm.state.value.messages.filterIsInstance<ChatMessage.Command>().last().command)
+        collecting.cancel()
+    }
+
+    @Test
     fun aBotsChatIsRememberedWhereTheChatsListWasTheLaunchProfileIncluded() {
         // Opened from the launch profile's Chats list: the next launch reads the launch profile's last chat.
         assertNull(ChatTarget(gateway, "b1", "Side", profile = "side", bot = BotIdentity("side", "Side")).rememberedIn)

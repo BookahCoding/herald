@@ -12,9 +12,12 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 
 /**
- * One Bot of Hermes' Bot Mode: a profile seen as a named agent with one permanent chat. A `profiles.list`
- * row over the socket (tui_gateway/methods_profiles.py), which carries what `GET /api/profiles` doesn't:
- * the chat previews and the look Desktop keeps in the profile's `ui_meta`. Times are epoch seconds.
+ * One profile from `profiles.list`, which Bot Mode can present as a named agent with one permanent chat.
+ * It is that bot only when [hasBotIdentity] is set. Every other row, Shisha (the default profile) and a
+ * profile the user merely chats with included, is an ordinary profile: opening it is a normal session and
+ * must not start a Bot Chat. The socket row (tui_gateway/methods_profiles.py) carries what
+ * `GET /api/profiles` doesn't: the chat previews and the look Desktop keeps in the profile's `ui_meta`.
+ * Times are epoch seconds.
  */
 @Serializable
 data class Bot(
@@ -44,6 +47,22 @@ data class Bot(
 
     /** Desktop's look and title for this bot (`ui_meta["hermes-bots"]`); every field may be missing. */
     val meta: BotMeta get() = BotMeta.of(uiMeta?.get(BotMeta.KEY))
+
+    /**
+     * The user opted this profile into Bot Mode. Desktop writes that as a creation time, or a title or look
+     * of their own (`shape`, `color`, `custom`, `imageKind`). A display name is the profile's own name, and
+     * hidden or pinned only moves the roster row: neither is an identity, and neither makes a Bot Chat.
+     */
+    val hasBotIdentity: Boolean
+        get() {
+            val look = meta
+            return look.createdMs != null ||
+                look.custom ||
+                !look.title.isNullOrBlank() ||
+                !look.shape.isNullOrBlank() ||
+                !look.color.isNullOrBlank() ||
+                !look.imageKind.isNullOrBlank()
+        }
 
     /** Desktop's name for the bot: its Bot Mode title, the profile's display name, "Hermes" for the default, else the id. */
     val label: String

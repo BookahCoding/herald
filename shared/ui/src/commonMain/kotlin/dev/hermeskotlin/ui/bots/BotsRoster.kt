@@ -447,7 +447,8 @@ private fun BotCard(
             if (recent != null) MenuAction("Open recent session", Lucide.History, act { actions.openRecent(bot) })
             MenuAction("New chat with ${bot.label}", Lucide.MessageSquarePlus, act { actions.newChat(bot) })
             MenuAction("Routines", Lucide.CalendarClock, act { actions.routines(bot) })
-            if (bot.canonicalSession != null) MenuAction("Start fresh", Lucide.RotateCcw, act(onStartOver))
+            // Start fresh archives the Bot Chat. Only a profile the user made a bot has one to retire.
+            if (bot.hasBotIdentity && bot.canonicalSession != null) MenuAction("Start fresh", Lucide.RotateCcw, act(onStartOver))
             MenuAction("Edit", Lucide.Pencil, act { actions.edit(bot) })
             MenuAction("Duplicate", Lucide.Copy, act { actions.duplicate(bot) })
             // The gateway keeps its primary profile.

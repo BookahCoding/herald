@@ -1,8 +1,10 @@
 package dev.hermeskotlin.ui
 
+import dev.hermeskotlin.core.bots.Bot
+import dev.hermeskotlin.core.bots.BotChatBackend
+import dev.hermeskotlin.core.bots.BotOptInStore
 import dev.hermeskotlin.core.auth.AuthApi
 import dev.hermeskotlin.core.auth.PersistentCookiesStorage
-import dev.hermeskotlin.core.bots.BotChatBackend
 import dev.hermeskotlin.core.bots.BotChats
 import dev.hermeskotlin.core.cache.InMemoryOfflineDao
 import dev.hermeskotlin.core.cache.OfflineCache
@@ -40,6 +42,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -92,12 +96,15 @@ class AppViewModelTest {
     @AfterTest fun tearDown() = Dispatchers.resetMain()
 
     // The connection's retry loop runs in the test's background scope, so it stops with the test.
-    private fun TestScope.viewModel(): AppViewModel {
+    private fun TestScope.viewModel(bots: BotChatBackend = NoBotChats): AppViewModel {
         val connection = GatewayConnection(auth, openSocket = { _, _ -> error("no socket in tests") }, scope = backgroundScope)
         val host = ChatHost(connection, SessionsApi(client), backgroundScope)
         val profiles = NotificationProfiles(store, gateways, ProfileStore(store), backgroundScope)
         val push = PushSetup(PushApi(connection), NoPushKeys, connection, gateways, SettingsStore(store, backgroundScope), profiles, backgroundScope) { "Test" }
-        return AppViewModel(gateways, auth, connection, lastChats, host, ProfileStore(store), links, BotChats(NoBotChats), push, access, cache, seen)
+        return AppViewModel(
+            gateways, auth, connection, lastChats, host, ProfileStore(store), links, BotChats(bots), push, access, cache, seen,
+            botOptIns = BotOptInStore(store),
+        )
     }
 
     private val links = ChatLinks()
@@ -406,4 +413,104 @@ class AppViewModelTest {
         assertEquals("s9", chat.target.storedSessionId)
         assertEquals(1_300.0, chat.target.readUpTo)
     }
+
+    @Test
+    fun aRememberedProfileChatDoesNotComeBackAsItsBotChat() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("default", "Shisha", hidden = true), plain("froebel", "Froebel"), made("scribe")))
+        lastChats.set(home.gatewayUrl, LastChat("bot-chat", "Bot Chat", bot = "froebel", botLabel = "Froebel"))
+
+        val chat = viewModel().awaitChat(home)
+
+        assertNull(chat.target.bot)
+        assertNull(chat.target.storedSessionId)
+        assertEquals(null, chat.target.profile)
+        assertFalse(chat.target.preserveLastChat)
+    }
+
+    @Test
+    fun shishaRememberedAsABotOpensANormalChat() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("default", "Shisha")))
+        lastChats.set(home.gatewayUrl, LastChat("bot-chat", "Bot Chat", bot = "default", botLabel = "Shisha"))
+
+        val chat = viewModel().awaitChat(home)
+
+        assertNull(chat.target.bot)
+        assertNull(chat.target.storedSessionId)
+        assertFalse(chat.target.preserveLastChat)
+    }
+
+    @Test
+    fun aRememberedRealBotChatStillOpensAsThatBot() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("default", "Shisha"), made("scribe")))
+        lastChats.set(home.gatewayUrl, LastChat("b1", "Bot Chat", bot = "scribe", botLabel = "Scribe"))
+
+        val chat = viewModel().awaitChat(home)
+
+        assertEquals("scribe", chat.target.bot?.name)
+        assertEquals("Scribe", chat.target.bot?.label)
+        assertEquals("b1", chat.target.storedSessionId)
+        assertNull(chat.target.bot?.chatsProfile)
+    }
+
+    @Test
+    fun aRememberedBotChatStaysPutUntilARosterSaysWhatItIs() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        lastChats.set(home.gatewayUrl, LastChat("bot-chat", "Bot Chat", bot = "scribe", botLabel = "Scribe"))
+
+        val chat = viewModel().awaitChat(home)
+
+        // Not opened, and not forgotten: the next launch can still restore it once the roster is known.
+        assertNull(chat.target.bot)
+        assertNull(chat.target.storedSessionId)
+        assertTrue(chat.target.preserveLastChat)
+        assertEquals("bot-chat", lastChats.get(home.gatewayUrl)?.sessionId)
+    }
+
+    @Test
+    fun openingAPlainProfileDoesNotMintOrBindItsBotChat() = runTest {
+        gateways.save(home)
+        signedIn(home)
+        BotOptInStore(store).record(home.gatewayUrl, listOf(plain("froebel", "Froebel"), made("scribe")))
+        val started = mutableListOf<String>()
+        val app = viewModel(object : BotChatBackend {
+            override suspend fun botChat(profile: String) = error("lookup $profile")
+            override suspend fun startBotChat(profile: String) = "minted".also { started += profile }
+        })
+        app.awaitChat(home)
+
+        // The Bots tab, a notification and a link all come through here. A plain profile must not
+        // resume the hidden Bot Chat, and must not start one.
+        app.openBotChat(plain("froebel", "Froebel"), "bot-chat")
+        app.chatsProfile.first { it == "froebel" }
+        val chat = app.route.value as Route.Chat
+        assertNull(chat.target.bot)
+        assertNull(chat.target.storedSessionId)
+        assertEquals("froebel", chat.target.profile)
+        assertTrue(started.isEmpty())
+
+        app.openBotChat(made("scribe"), "b1")
+        val bot = app.route.value as Route.Chat
+        assertEquals("scribe", bot.target.bot?.name)
+        assertEquals("Scribe", bot.target.bot?.label)
+        assertEquals("b1", bot.target.storedSessionId)
+        assertTrue(started.isEmpty())
+    }
+
+    private fun plain(name: String, display: String, hidden: Boolean = false) = Bot(
+        name = name,
+        displayName = display,
+        uiMeta = if (!hidden) null else Json.parseToJsonElement("""{"hermes-bots":{"hidden":true}}""").jsonObject,
+    )
+
+    private fun made(name: String) = Bot(
+        name = name,
+        uiMeta = Json.parseToJsonElement("""{"hermes-bots":{"created":1,"title":"Scribe"}}""").jsonObject,
+    )
 }
