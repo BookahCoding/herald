@@ -48,6 +48,14 @@ data class ModelProvider(
      * picker offers only their free models.
      */
     val chosen: Boolean = true,
+    /** `model.options` `auth_type`, when the gateway sent one (`local`, `api_key`, …). */
+    val authType: String? = null,
+    /**
+     * Runs without a cloud API key: `auth_type` `local`, or a llamacpp / Ollama / LM Studio / custom endpoint
+     * the user configured. [ModelCatalog.usable] keeps every model of one, even with no price and even when
+     * the gateway's `explicit_only` list left it out.
+     */
+    val keyless: Boolean = false,
 )
 
 /** Costs nothing to run: the gateway prices it as free, or it is one of OpenRouter's `:free` variants. */
@@ -73,12 +81,18 @@ data class ModelCatalog(
         get() = providers.any { p -> p.slug.lowercase() in PRICED_PROVIDERS && p.models.none { it.price != null } }
 
     /**
-     * What the picker offers: every model of a [ModelProvider.chosen] provider, and only the free ones of the
-     * rest. A provider left with nothing is dropped.
+     * What the picker offers: every model of a provider the user set up ([ModelProvider.chosen], or a
+     * [ModelProvider.keyless] local or custom endpoint), and only the free ones of the rest. A keyless
+     * provider is marked chosen so the picker lists it under its own name. A provider left with nothing
+     * is dropped.
      */
     fun usable(): ModelCatalog = copy(
         providers = providers.mapNotNull { p ->
-            if (p.chosen) p else p.copy(models = p.models.filter { it.isFree }).takeIf { it.models.isNotEmpty() }
+            when {
+                p.chosen -> p
+                p.keyless -> p.copy(chosen = true)
+                else -> p.copy(models = p.models.filter { it.isFree }).takeIf { it.models.isNotEmpty() }
+            }
         },
     )
 
@@ -96,11 +110,26 @@ data class ModelCatalog(
     )
 
     companion object {
-        /** Lenient: providers without credentials or without models are dropped, unknown fields ignored. */
+        /**
+         * Lenient: a provider with no models is dropped, and so is a cloud provider that still needs a key
+         * (`authenticated` false, and not [isKeylessProvider]). A local or no-key custom provider is kept
+         * even then: it has nothing to authenticate. Unknown fields are ignored.
+         */
         fun parse(result: JsonObject?): ModelCatalog {
             val providers = result?.get("providers").asObjectList().mapNotNull { row ->
                 val slug = row.string("slug") ?: return@mapNotNull null
-                if (row.boolean("authenticated") == false) return@mapNotNull null
+                val name = row.string("name")?.takeIf { it.isNotBlank() } ?: slug
+                val authType = row.string("auth_type")
+                val keyless = isKeylessProvider(
+                    slug = slug,
+                    name = name,
+                    authType = authType,
+                    keyEnv = row.string("key_env"),
+                    userDefined = row.boolean("is_user_defined") == true,
+                )
+                // A cloud row with no credentials can't be selected. A local runtime reports the same flag
+                // because it has no API key, and it still has models.
+                if (row.boolean("authenticated") == false && !keyless) return@mapNotNull null
                 val capabilities = row["capabilities"] as? JsonObject
                 val pricing = row["pricing"] as? JsonObject
                 val unavailable = row.strings("unavailable_models").toSet()
@@ -118,10 +147,12 @@ data class ModelCatalog(
                 if (models.isEmpty()) return@mapNotNull null
                 ModelProvider(
                     slug = slug,
-                    name = row.string("name")?.takeIf { it.isNotBlank() } ?: slug,
+                    name = name,
                     models = models,
                     featured = row.strings("featured_models").filter { f -> models.any { it.id == f } },
                     warning = row.string("warning")?.takeIf { it.isNotBlank() },
+                    authType = authType,
+                    keyless = keyless,
                 )
             }.distinctBy { it.slug } // Picks and stars name a provider by slug: a second one could never be told apart.
             return ModelCatalog(
@@ -259,6 +290,35 @@ class ModelsApi(private val connection: GatewayConnection) {
  * so their missing prices are no reason to ask again.
  */
 private val PRICED_PROVIDERS = setOf("openrouter", "nous", "ai-gateway", "novita", "deepinfra", "fireworks", "kilocode")
+
+/**
+ * Slugs that serve a machine on the user's network, or a custom OpenAI-compatible endpoint, and do not need
+ * a cloud key. `ollama-cloud` is not one of these. Hermes aliases llamacpp / ollama / lmstudio onto `custom`
+ * (`hermes_cli/providers.py`); a saved endpoint is `custom:<name>`.
+ */
+private val KEYLESS_SLUGS = setOf(
+    "llamacpp", "llama.cpp", "llama-cpp", "local",
+    "ollama", "lmstudio", "lm-studio", "lm_studio", "custom",
+)
+
+/** Display names the local runtimes use when the slug was normalized away (`Local` is the llamacpp row). */
+private val KEYLESS_NAMES = setOf("local", "ollama", "lm studio", "custom endpoint")
+
+/**
+ * A provider the chat picker can offer with no API key. `auth_type` `local` is the llamacpp row (inventory.py).
+ * Ollama, LM Studio and a user-added custom endpoint are the same kind of row: models, often no price, and
+ * `authenticated: false` because there is nothing to authenticate. A user-defined row with no key env is too.
+ * A cloud provider that names a key (`auth_type` `api_key` and a `key_env`) is not.
+ */
+internal fun isKeylessProvider(slug: String, name: String, authType: String?, keyEnv: String?, userDefined: Boolean): Boolean {
+    if (authType.equals("local", ignoreCase = true)) return true
+    val id = slug.trim().lowercase()
+    if (id in KEYLESS_SLUGS || id.startsWith("custom:")) return true
+    if (name.trim().lowercase() in KEYLESS_NAMES) return true
+    if (!userDefined) return false
+    val type = authType?.trim()?.lowercase()
+    return type.isNullOrEmpty() || type == "api_key" && keyEnv.isNullOrBlank()
+}
 
 private fun JsonObject.strings(key: String): List<String> =
     (this[key] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.contentOrNull }

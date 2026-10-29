@@ -45,7 +45,7 @@ val notifyModule = module {
     single { VoiceCallKeeper(androidContext()) } bind VoiceKeepAlive::class
     single { ChatNotifier(androidContext(), get(), get(), get(), get(), get(), get(), get<ProfileGate>(), get<WatchRelay>().busy) }
     single { WatchNotifier(get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
-    single { BotNotifier(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
+    single { BotNotifier(androidContext(), get(), get(), get(), get(), get(), get(), get(), get(), get<ProfileGate>(), get()) }
     single { RoomNotifier(get(), get(), get(), get(), get(), get(), get<ProfileGate>()) }
     single { PushStore(androidContext()) } bind PushKeys::class
     single { InboxApi(get(), get(), get<NotificationProfiles>()) }

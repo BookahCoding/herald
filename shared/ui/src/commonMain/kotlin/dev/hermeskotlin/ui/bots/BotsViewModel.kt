@@ -245,6 +245,8 @@ class BotsViewModel(
      * as reading). When that can't be done safely the row says so instead, and the user can tap again.
      */
     fun open(bot: Bot, onOpened: (storedSessionId: String, readUpTo: Double?) -> Unit) {
+        // A profile the user didn't make a bot has no permanent chat to find, and looking would start one.
+        if (!bot.hasBotIdentity) return
         if (_state.value.opening != null) return
         _state.update { it.copy(opening = bot.name, notice = null) }
         viewModelScope.launch {
@@ -286,6 +288,8 @@ class BotsViewModel(
      * archived), and a new empty one is opened. The bot keeps its memory, skills and settings.
      */
     fun startFresh(bot: Bot, onOpened: (storedSessionId: String) -> Unit) {
+        // Archiving is how a Bot Chat is retired. A profile that isn't a bot keeps the session other agents use.
+        if (!bot.hasBotIdentity) return
         val url = gateway.value ?: return
         val chat = bot.canonicalSession ?: return open(bot) { id, _ -> onOpened(id) }
         _state.update { it.copy(opening = bot.name, notice = null) }
@@ -320,7 +324,16 @@ class BotsViewModel(
                 val made = api.createBot(draft)
                 refreshNow()
                 onDone()
-                val bot = _state.value.all.firstOrNull { it.name == made.profile } ?: Bot(name = made.profile)
+                val bot = _state.value.all.firstOrNull { it.name == made.profile && it.hasBotIdentity }
+                    ?: Bot(
+                        name = made.profile,
+                        uiMeta = kotlinx.serialization.json.buildJsonObject {
+                            put(
+                                dev.hermeskotlin.core.bots.BotMeta.KEY,
+                                kotlinx.serialization.json.buildJsonObject { put("created", JsonPrimitive(1)) },
+                            )
+                        },
+                    )
                 if (!made.readyToChat) {
                     _state.update { it.copy(notice = "Made ${bot.label}, but it has no model it can use yet. ${made.problem.orEmpty()}".trim()) }
                     return@launch

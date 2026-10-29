@@ -152,6 +152,11 @@ data class ChatTarget(
     val draft: ComposeDraft? = null,
     val cwd: String? = null,
     val readUpTo: Double? = null,
+    /**
+     * A new chat standing in for a remembered Bot Chat that might still be a real bot's. The remembered
+     * chat is left in place, so the next launch can open it once a roster says the profile was made a bot.
+     */
+    val preserveLastChat: Boolean = false,
 ) {
     /**
      * The profile whose last chat this is, which the next launch reads: a bot's chat counts where the Chats
@@ -482,7 +487,10 @@ class ChatViewModel(
         _attachmentError.value = null
         restoreDraft(target, typed)
         target.draft?.let(::takeDraft)
-        if (target.storedSessionId == null) viewModelScope.launch { lastChats.set(target.gateway.gatewayUrl, null, target.profile) }
+        // A placeholder for a Bot Chat we couldn't classify yet must not wipe that memory.
+        if (target.storedSessionId == null && !target.preserveLastChat) {
+            viewModelScope.launch { lastChats.set(target.gateway.gatewayUrl, null, target.profile) }
+        }
         bind(target)
         // The catalog marks the previous chat's model; a new chat must show the profile default instead.
         _picker.update { it.copy(catalog = null, confirm = null) }

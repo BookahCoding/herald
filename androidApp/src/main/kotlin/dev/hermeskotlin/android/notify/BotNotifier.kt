@@ -2,6 +2,7 @@ package dev.hermeskotlin.android.notify
 
 import android.content.Context
 import dev.hermeskotlin.core.bots.Bot
+import dev.hermeskotlin.core.bots.BotOptInStore
 import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.bots.forRoster
 import dev.hermeskotlin.core.chat.ChatHost
@@ -53,6 +54,8 @@ class BotNotifier(
     private val settings: SettingsStore,
     private val notifications: ChatNotifications,
     private val profiles: ProfileGate,
+    /** So a tap later opens a Bot Chat only for a profile the user made a bot. */
+    private val botOptIns: BotOptInStore,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val lock = Mutex()
@@ -64,7 +67,9 @@ class BotNotifier(
 
     /** The bot whose permanent chat [storedSessionId] is, as the last roster read knew it. */
     fun botWithChat(storedSessionId: String): Bot? =
-        roster.firstOrNull { bot -> bot.canonicalSession?.let { storedSessionId == it.id || storedSessionId == it.openId } == true }
+        roster.firstOrNull { bot ->
+            bot.hasBotIdentity && bot.canonicalSession?.let { storedSessionId == it.id || storedSessionId == it.openId } == true
+        }
 
     fun picture(bot: Bot): ByteArray? = pictures[bot.name]
 
@@ -140,13 +145,15 @@ class BotNotifier(
             return@withLock
         }
         roster = bots
+        gateways.current()?.gatewayUrl?.let { botOptIns.record(it, bots) }
         if (watch) {
             saveRoster(bots)
             bots.forEach { bot -> scope.launch { runCatching { api.watch(bot.name) } } }
         }
         // Shortcuts follow the roster: published on each connection, and again whenever a bot comes, goes,
         // is renamed or hidden, so the share sheet never offers one that's gone.
-        val shown = bots.filterNot { it.meta.hidden }
+        // Shortcuts and the share sheet are for bots the user made. A plain profile is not one of them.
+        val shown = bots.filter { it.hasBotIdentity && !it.meta.hidden }
         val look = shown.map { Bot(name = it.name, isDefault = it.isDefault, displayName = it.displayName, uiMeta = it.uiMeta, hasAvatar = it.hasAvatar) }
         val launcher = launcherEntry()
         if (watch || look != published || launcher != publishedUnder) {
@@ -159,6 +166,7 @@ class BotNotifier(
         val prefs = settings.settings.value ?: AppSettings()
         val open = host.session.value?.state?.value?.storedSessionId
         for (bot in bots) {
+            if (!bot.hasBotIdentity) continue
             val chat = bot.canonicalSession ?: continue
             // last_active lags behind new messages on the gateway; the count and newest line don't.
             val now = "${chat.openId}|${chat.messageCount}|${chat.preview}|${chat.activityAt}"

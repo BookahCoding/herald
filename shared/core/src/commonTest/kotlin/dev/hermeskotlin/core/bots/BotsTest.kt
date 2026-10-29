@@ -60,6 +60,30 @@ class BotsTest {
     }
 
     @Test
+    fun aProfileIsABotOnlyWithAnExplicitIdentity() {
+        val bots = parseBotRoster(reply).bots
+        // The default profile has a Bot Chat and a display name, and that is not an identity.
+        assertFalse(bots[0].hasBotIdentity)
+        // A canonical chat alone isn't either.
+        assertFalse(bots[1].hasBotIdentity)
+        // Created, with a look, is.
+        assertTrue(bots[2].hasBotIdentity)
+        // A custom title is, even when the row is only hidden.
+        assertTrue(bots[3].hasBotIdentity)
+
+        fun profile(meta: String) = HermesJson.decodeFromString(Bot.serializer(), """{"name":"froebel","display_name":"Froebel","ui_meta":{"hermes-bots":$meta}}""")
+        assertFalse(HermesJson.decodeFromString(Bot.serializer(), """{"name":"default","display_name":"Shisha"}""").hasBotIdentity)
+        assertFalse(profile("""{"hidden":true}""").hasBotIdentity)
+        assertFalse(profile("""{"pinned":true}""").hasBotIdentity)
+        assertTrue(profile("""{"created":1791170000000}""").hasBotIdentity)
+        assertTrue(profile("""{"title":"Tutor"}""").hasBotIdentity)
+        assertTrue(profile("""{"custom":true}""").hasBotIdentity)
+        assertTrue(profile("""{"shape":"squircle"}""").hasBotIdentity)
+        assertTrue(profile("""{"color":"#8b5cf6"}""").hasBotIdentity)
+        assertTrue(profile("""{"imageKind":"photo"}""").hasBotIdentity)
+    }
+
+    @Test
     fun namesFollowDesktop() {
         val bots = parseBotRoster(reply).bots
         assertEquals("Shisha", bots[0].label)

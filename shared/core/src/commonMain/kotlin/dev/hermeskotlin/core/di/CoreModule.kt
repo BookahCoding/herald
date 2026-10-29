@@ -52,6 +52,7 @@ import dev.hermeskotlin.core.journey.JourneyApi
 import dev.hermeskotlin.core.pet.PetApi
 import dev.hermeskotlin.core.bots.BotChats
 import dev.hermeskotlin.core.bots.BotHealth
+import dev.hermeskotlin.core.bots.BotOptInStore
 import dev.hermeskotlin.core.bots.BotsApi
 import dev.hermeskotlin.core.projects.ProjectsApi
 import dev.hermeskotlin.core.threads.ThreadsApi
@@ -101,6 +102,7 @@ val coreModule = module {
     single { InsightsApi(get()) }
     single { ConfigApi(get()) }
     single { LastChatStore(get()) }
+    single { BotOptInStore(get()) }
     single { DraftStore(get()) }
     single { ProfilesApi(get()) }
     single { ProfileStore(get()) }

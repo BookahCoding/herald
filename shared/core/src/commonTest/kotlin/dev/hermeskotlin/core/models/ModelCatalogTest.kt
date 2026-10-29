@@ -38,6 +38,36 @@ class ModelCatalogTest {
     }
 
     @Test
+    fun aLocalProviderWithModelsAndNoPriceStaysSelectable() {
+        val catalog = parse(
+            """{"providers":[
+              {"slug":"llamacpp","name":"Local","models":["qwen"],"authenticated":false,"auth_type":"local"},
+              {"slug":"ollama","name":"Ollama","models":["llama3"],"authenticated":false},
+              {"slug":"lmstudio","name":"LM Studio","models":["qwen-local"],"authenticated":false,"auth_type":"api_key","key_env":"LM_API_KEY"},
+              {"slug":"custom:box","name":"My GPU","models":["box-model"],"authenticated":false,"is_user_defined":true},
+              {"slug":"my-gpu","name":"Bench","models":["bench"],"authenticated":false,"is_user_defined":true},
+              {"slug":"runtime","name":"Local","models":["gguf"],"authenticated":true},
+              {"slug":"anthropic","name":"Anthropic","models":["claude"],"authenticated":false},
+              {"slug":"ollama-cloud","name":"Ollama Cloud","models":["cloud"],"authenticated":false,"auth_type":"api_key","key_env":"OLLAMA_API_KEY"},
+              {"slug":"proxy","name":"Proxy","models":["paid"],"authenticated":false,"auth_type":"api_key","key_env":"PROXY_KEY","is_user_defined":true},
+              {"slug":"empty-local","name":"Local","models":[],"authenticated":false,"auth_type":"local"}
+            ]}""",
+        ).withChosen(emptySet())
+        val usable = catalog.usable()
+        assertEquals(
+            listOf("llamacpp", "ollama", "lmstudio", "custom:box", "my-gpu", "runtime"),
+            usable.providers.map { it.slug },
+        )
+        assertTrue(usable.providers.all { it.chosen && it.keyless && it.models.single().price == null })
+        val shown = usable.pickerSections("", PickerScope.All).flatMap { section -> section.models.flatMap { row -> row.variants.map { it.id } } }
+        assertEquals(listOf("qwen", "llama3", "qwen-local", "box-model", "bench", "gguf"), shown)
+        assertNull(catalog.find("anthropic", "claude"))
+        assertNull(catalog.find("ollama-cloud", "cloud"))
+        assertNull(catalog.find("proxy", "paid"))
+        assertNull(catalog.find("empty-local", "missing"))
+    }
+
+    @Test
     fun pricesFromARefreshFillTheGaps() {
         val priced = ModelCatalog(
             listOf(
