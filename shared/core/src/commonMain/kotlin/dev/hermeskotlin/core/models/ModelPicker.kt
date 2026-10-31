@@ -127,7 +127,7 @@ fun ModelCatalog.pickerSections(
             val local = providers.filter { it.chosen && it.keyless }
             cloud.map { p ->
                 // A cloud provider's free models also appear in the free section, as before.
-                PickerSection(displayProviderName(p.slug, p.name), pickerModels(p.slug) { !it.isFree }, provider = p.slug)
+                PickerSection(displayProviderName(p.slug, p.name), pickerModels(p.slug, filter = { model -> !model.isFree }), provider = p.slug)
             } + listOfNotNull(
                 local.takeIf { it.isNotEmpty() }?.let { rows ->
                     // One section for every local and custom endpoint: they run on the user's own machines, so
