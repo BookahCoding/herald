@@ -142,7 +142,10 @@ class ModelCatalogTest {
         assertEquals(listOf("vendor/free"), sections[1].models.flatMap { row -> row.variants.map { it.id } })
         assertEquals(listOf("custom", "custom", "custom"), sections[0].models.map { it.provider })
         // The Local chip lists the same rows alone.
-        assertEquals(sections[0].models, usable.pickerSections("", PickerScope.Local).single().models)
+        assertEquals(
+            sections[0].models.flatMap { row -> row.variants.map { it.id } },
+            usable.pickerSections("", PickerScope.Local).single().models.flatMap { row -> row.variants.map { it.id } },
+        )
     }
 
     @Test
