@@ -218,7 +218,7 @@ class ModelPickerTest {
     fun localAndCustomProvidersShareOneLocalSection() {
         val sections = withLocal.pickerSections("", PickerScope.All)
         assertEquals(listOf("Nous Portal", LOCAL_SECTION), sections.map { it.title })
-        assertEquals(listOf("ollama", "custom"), sections[1].models.map { it.variants.single().provider })
+        assertEquals(listOf("ollama", "custom"), sections[1].models.map { it.provider })
         // A local model the gateway priced free stays in the Local section, not the free one.
         assertEquals(listOf("llama3", "qwen-local"), sections[1].models.flatMap { row -> row.variants.map { it.id } })
         assertEquals(sections[1].models, withLocal.pickerSections("", PickerScope.Local).single().models)
