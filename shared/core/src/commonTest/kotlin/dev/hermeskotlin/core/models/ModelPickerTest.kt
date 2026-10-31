@@ -225,7 +225,8 @@ class ModelPickerTest {
             sections[1].models.flatMap { row -> row.variants.map { it.id } },
             withLocal.pickerSections("", PickerScope.Local).single().models.flatMap { row -> row.variants.map { it.id } },
         )
-        assertTrue(withLocal.pickerSections("", PickerScope.Free).isEmpty())
+        // The Free chip is a plain filter over every model, so the free-priced local one appears there too.
+        assertEquals(listOf("qwen-local"), withLocal.pickerSections("", PickerScope.Free).single().models.flatMap { row -> row.variants.map { it.id } })
     }
 
     @Test
