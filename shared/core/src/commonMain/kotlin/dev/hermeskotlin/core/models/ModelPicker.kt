@@ -8,7 +8,7 @@ val ModelOption.starKey: String get() = "$provider/$id"
  * per provider, in catalog order: `anthropic/claude-opus-5.5` on Nous Portal and on OpenRouter and `claude-opus-5-5`
  * on Anthropic are all one "Opus 5.5" row.
  */
-data class PickerModel(val name: String, val variants: List<ModelOption>) {
+data class PickerModel(val name: String, val variants: List<ModelOption>, val provider: String? = null) {
     fun isStarred(starred: Collection<String>): Boolean = variants.any { it.starKey in starred }
 
     /**
@@ -22,11 +22,13 @@ data class PickerModel(val name: String, val variants: List<ModelOption>) {
             ?: variants.first()
 }
 
-/** Which models the picker lists: the ones you use, every model, one provider's, or the free ones. */
+/** Which models the picker lists: the ones you use, every model, one provider's, the local ones, or the free ones. */
 sealed interface PickerScope {
     data object Yours : PickerScope
     data object All : PickerScope
     data class Provider(val slug: String) : PickerScope
+    /** The local and custom endpoints ([ModelProvider.keyless]). */
+    data object Local : PickerScope
     data object Free : PickerScope
 }
 
@@ -46,10 +48,27 @@ data class PickerSection(val title: String?, val models: List<PickerModel>, val 
 const val FREE_SECTION = "Free to use"
 
 /**
+ * The heading of the local and custom endpoints' section: providers that run without a cloud key
+ * ([ModelProvider.keyless]). Their models often have no price, so they would otherwise land in, or vanish
+ * between, the free section and their provider's own.
+ */
+const val LOCAL_SECTION = "Local and custom"
+
+/**
  * Every model of the catalog (or of [provider] only) as picker rows, the same model from different providers
  * merged into one row. Two models of one provider stay apart even when their names match.
  */
-fun ModelCatalog.pickerModels(provider: String? = null, filter: (ModelOption) -> Boolean = { true }): List<PickerModel> {
+fun ModelCatalog.pickerModels(
+    provider: String? = null,
+    filter: (ModelOption) -> Boolean = { true },
+    tagProvider: Boolean = false,
+): List<PickerModel> {
+    val rows = pickerRows(provider, filter)
+    return rows.map { row -> if (tagProvider && provider != null) row.taggedWith(provider) else row }
+}
+
+/** [pickerModels] before the rows are named, so a shared section can tag each row with its provider. */
+private fun ModelCatalog.pickerRows(provider: String? = null, filter: (ModelOption) -> Boolean = { true }): List<PickerModel> {
     val rows = LinkedHashMap<String, MutableList<MutableList<ModelOption>>>()
     providers.filter { provider == null || it.slug == provider }.forEach { p ->
         p.models.filter(filter).forEach { model ->
@@ -61,6 +80,9 @@ fun ModelCatalog.pickerModels(provider: String? = null, filter: (ModelOption) ->
     return rows.values.flatten().map { PickerModel(displayModelName(it.first().id), it) }
 }
 
+/** The same row tagged with [providerSlug], for a section that lists several providers' models together. */
+private fun PickerModel.taggedWith(providerSlug: String): PickerModel = copy(provider = providerSlug)
+
 /** The catalog offers at least one of the models kept under [keys] ([starKey]s). */
 fun ModelCatalog.offersAny(keys: Collection<String>): Boolean =
     keys.isNotEmpty() && providers.any { p -> p.models.any { it.starKey in keys } }
@@ -70,10 +92,11 @@ fun ModelCatalog.offersAny(keys: Collection<String>): Boolean =
  *
  * Without a query, [PickerScope.Yours] lists the [starred] models (in the order they were starred), then the
  * [current] model (a [starKey]) and the [recent] ones. [PickerScope.All] lists each [ModelProvider.chosen]
- * provider's paid models under its name, then every free model under [FREE_SECTION], the same model from
- * several providers as one row. A [ModelProvider.keyless] provider keeps every model under its own name (a bare
- * `custom` row reads as Custom), including ones the gateway priced free, so a local catalog isn't emptied into
- * the free section. [PickerScope.Free] is that last section alone; a provider's scope lists all of its models.
+ * cloud provider's models under its name, then the [ModelProvider.keyless] local and custom endpoints together
+ * under [LOCAL_SECTION] (a bare `custom` row reads as Custom), then every free model under [FREE_SECTION], the
+ * same model from several providers as one row. A keyless model the gateway priced free stays in
+ * [LOCAL_SECTION], so a local catalog isn't emptied into the free section. [PickerScope.Free] is that last
+ * section alone; a provider's scope lists all of its models.
  *
  * A query ranks models by how well their name or id matches: a name that starts with it first, then one with a
  * word that does, then one that has it anywhere. A query with digits also matches letters in order, so "op55"
@@ -89,24 +112,40 @@ fun ModelCatalog.pickerSections(
 ): List<PickerSection> {
     val needle = query.trim()
     val slug = (scope as? PickerScope.Provider)?.slug
-    val models = pickerModels(slug)
+    val scopedToLocal = scope == PickerScope.Local
+    val models = pickerModels(slug, filter = { model -> !scopedToLocal || providers.any { p -> p.slug == model.provider && p.keyless } })
     val sections = when {
-        needle.isNotEmpty() -> search(needle, models, acrossProviders = slug == null)
+        needle.isNotEmpty() -> search(needle, models, acrossProviders = slug == null && !scopedToLocal)
         scope == PickerScope.Yours -> {
             fun row(key: String) = models.firstOrNull { m -> m.variants.any { it.starKey == key } }
             val starredRows = starred.mapNotNull(::row).distinct()
             val recentRows = (listOfNotNull(current) + recent).mapNotNull(::row).distinct() - starredRows.toSet()
             listOf(PickerSection("Starred", starredRows), PickerSection("Recent", recentRows.take(RECENT_SHOWN)))
         }
-        scope == PickerScope.All -> providers.filter { it.chosen }.map { p ->
-            // A local or custom endpoint often has no price, or is priced free. Either way it stays under its
-            // own heading (Custom, for a bare custom row) instead of vanishing into the free section.
-            PickerSection(displayProviderName(p.slug, p.name), pickerModels(p.slug) { !it.isFree || p.keyless }, provider = p.slug)
-        } + PickerSection(
-            FREE_SECTION,
-            pickerModels { model -> model.isFree && providers.none { it.slug == model.provider && it.keyless } },
+        scope == PickerScope.All -> {
+            val cloud = providers.filter { it.chosen && !it.keyless }
+            val local = providers.filter { it.chosen && it.keyless }
+            cloud.map { p ->
+                // A cloud provider's free models also appear in the free section, as before.
+                PickerSection(displayProviderName(p.slug, p.name), pickerModels(p.slug, filter = { model -> !model.isFree }), provider = p.slug)
+            } + listOfNotNull(
+                local.takeIf { it.isNotEmpty() }?.let { rows ->
+                    // One section for every local and custom endpoint: they run on the user's own machines, so
+                    // they read as one category, each row naming its provider.
+                    PickerSection(LOCAL_SECTION, rows.flatMap { p -> pickerModels(p.slug, tagProvider = true) })
+                },
+            ) + PickerSection(
+                FREE_SECTION,
+                pickerModels(filter = { model -> model.isFree && providers.none { p -> p.slug == model.provider && p.keyless } }),
+            )
+        }
+        scope == PickerScope.Local -> listOf(
+            PickerSection(
+                null,
+                providers.filter { it.keyless }.flatMap { p -> pickerModels(p.slug, tagProvider = true) },
+            ),
         )
-        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels { it.isFree }))
+        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels(filter = { model -> model.isFree })))
         else -> listOf(PickerSection(null, models, provider = slug))
     }
     return sections.filter { it.models.isNotEmpty() }

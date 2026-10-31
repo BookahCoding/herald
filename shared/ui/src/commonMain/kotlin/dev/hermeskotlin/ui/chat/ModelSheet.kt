@@ -56,6 +56,7 @@ import dev.hermeskotlin.core.models.PickerScope
 import dev.hermeskotlin.core.models.ReasoningEffort
 import dev.hermeskotlin.core.models.displayModelName
 import dev.hermeskotlin.core.models.displayProviderName
+import dev.hermeskotlin.core.models.LOCAL_SECTION
 import dev.hermeskotlin.core.models.isFree
 import dev.hermeskotlin.core.models.offersAny
 import dev.hermeskotlin.core.models.pickerModels
@@ -312,8 +313,9 @@ private fun ModelList(
     }
     val providerNames = remember(catalog) { catalog.providers.associate { it.slug to displayProviderName(it.slug, it.name) } }
     val allCount = remember(usable) { usable.pickerModels().size }
-    val hasFree = remember(usable) { usable.providers.any { p -> p.models.any { it.isFree } } }
+    val hasFree = remember(usable) { usable.providers.any { p -> !p.keyless && p.models.any { it.isFree } } }
     val chosenProviders = remember(usable) { usable.providers.filter { it.chosen } }
+    val hasLocal = remember(usable) { usable.providers.any { it.chosen && it.keyless } }
 
     if (usable.providers.sumOf { it.models.size } > SEARCH_THRESHOLD) {
         TextField(
@@ -327,7 +329,9 @@ private fun ModelList(
     val scopes = buildList {
         add(PickerScope.All to "All")
         if (hasYours) add(PickerScope.Yours to "Your models")
-        if (chosenProviders.size > 1 || hasFree) chosenProviders.forEach { add(PickerScope.Provider(it.slug) to providerNames.getValue(it.slug)) }
+        // A chip per category, and for one provider's models when there are several to pick between.
+        if (chosenProviders.size > 1 || hasFree || hasLocal) chosenProviders.forEach { add(PickerScope.Provider(it.slug) to providerNames.getValue(it.slug)) }
+        if (hasLocal) add(PickerScope.Local to LOCAL_SECTION)
         if (hasFree && chosenProviders.isNotEmpty()) add(PickerScope.Free to "Free")
     }
     if (scopes.size > 1) {
@@ -363,8 +367,9 @@ private fun ModelList(
                     row = row,
                     selection = selection,
                     starred = row.isStarred(starred),
-                    // Which provider a model comes from matters once there's more than one, unless its section says.
-                    providerNames = providerNames.takeIf { usable.providers.size > 1 && section.provider == null },
+                    // Which provider a model comes from matters once there's more than one, unless its section says
+                    // or the row carries it (the shared local section).
+                    providerNames = providerNames.takeIf { usable.providers.size > 1 && section.provider == null && row.provider == null },
                     // Two rows with the same name need their ids to tell them apart.
                     showId = row.name in repeatedNames,
                     onClick = { onPick(pick) },
@@ -502,7 +507,8 @@ private fun ModelRow(
                 overflow = TextOverflow.Ellipsis,
             )
             val details = listOfNotNull(
-                single?.provider?.let { providerNames?.get(it) },
+                // A row tagged in a shared section names its provider even when the section doesn't.
+                row.provider?.let { providerNames?.get(it) } ?: single?.provider?.let { providerNames?.get(it) },
                 row.variants.first().id.takeIf { showId && displayModelName(it) != it },
             ).joinToString(" · ")
             val price = single?.price
