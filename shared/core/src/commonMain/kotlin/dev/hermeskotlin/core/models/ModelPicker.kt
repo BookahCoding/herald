@@ -58,7 +58,11 @@ const val LOCAL_SECTION = "Local and custom"
  * Every model of the catalog (or of [provider] only) as picker rows, the same model from different providers
  * merged into one row. Two models of one provider stay apart even when their names match.
  */
-fun ModelCatalog.pickerModels(provider: String? = null, filter: (ModelOption) -> Boolean = { true }, tagProvider: Boolean = false): List<PickerModel> {
+fun ModelCatalog.pickerModels(
+    provider: String? = null,
+    filter: (ModelOption) -> Boolean = { true },
+    tagProvider: Boolean = false,
+): List<PickerModel> {
     val rows = pickerRows(provider, filter)
     return rows.map { row -> if (tagProvider && provider != null) row.taggedWith(provider) else row }
 }
@@ -109,7 +113,7 @@ fun ModelCatalog.pickerSections(
     val needle = query.trim()
     val slug = (scope as? PickerScope.Provider)?.slug
     val scopedToLocal = scope == PickerScope.Local
-    val models = pickerModels(slug) { model -> !scopedToLocal || providers.any { p -> p.slug == model.provider && p.keyless } }
+    val models = pickerModels(slug, filter = { model -> !scopedToLocal || providers.any { p -> p.slug == model.provider && p.keyless } })
     val sections = when {
         needle.isNotEmpty() -> search(needle, models, acrossProviders = slug == null && !scopedToLocal)
         scope == PickerScope.Yours -> {
@@ -131,7 +135,7 @@ fun ModelCatalog.pickerSections(
                 },
             ) + PickerSection(
                 FREE_SECTION,
-                pickerModels { model -> model.isFree && providers.none { p -> p.slug == model.provider && p.keyless } },
+                pickerModels(filter = { model -> model.isFree && providers.none { p -> p.slug == model.provider && p.keyless } }),
             )
         }
         scope == PickerScope.Local -> listOf(
@@ -140,7 +144,7 @@ fun ModelCatalog.pickerSections(
                 providers.filter { it.keyless }.flatMap { p -> pickerModels(p.slug, tagProvider = true) },
             ),
         )
-        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels { model -> model.isFree }))
+        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels(filter = { model -> model.isFree })))
         else -> listOf(PickerSection(null, models, provider = slug))
     }
     return sections.filter { it.models.isNotEmpty() }
