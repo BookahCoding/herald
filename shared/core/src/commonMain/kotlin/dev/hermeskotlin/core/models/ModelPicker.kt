@@ -109,7 +109,7 @@ fun ModelCatalog.pickerSections(
     val needle = query.trim()
     val slug = (scope as? PickerScope.Provider)?.slug
     val scopedToLocal = scope == PickerScope.Local
-    val models = pickerModels(slug) { !scopedToLocal || providers.any { it.slug == it.provider && it.keyless } }
+    val models = pickerModels(slug) { model -> !scopedToLocal || providers.any { p -> p.slug == model.provider && p.keyless } }
     val sections = when {
         needle.isNotEmpty() -> search(needle, models, acrossProviders = slug == null && !scopedToLocal)
         scope == PickerScope.Yours -> {
@@ -131,7 +131,7 @@ fun ModelCatalog.pickerSections(
                 },
             ) + PickerSection(
                 FREE_SECTION,
-                pickerModels { model -> model.isFree && providers.none { it.slug == model.provider && it.keyless } },
+                pickerModels { model -> model.isFree && providers.none { p -> p.slug == model.provider && p.keyless } },
             )
         }
         scope == PickerScope.Local -> listOf(
@@ -140,7 +140,7 @@ fun ModelCatalog.pickerSections(
                 providers.filter { it.keyless }.flatMap { p -> pickerModels(p.slug, tagProvider = true) },
             ),
         )
-        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels { it.isFree }))
+        scope == PickerScope.Free -> listOf(PickerSection(null, pickerModels { model -> model.isFree }))
         else -> listOf(PickerSection(null, models, provider = slug))
     }
     return sections.filter { it.models.isNotEmpty() }
