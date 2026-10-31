@@ -59,8 +59,15 @@ class ModelCatalogTest {
             usable.providers.map { it.slug },
         )
         assertTrue(usable.providers.all { it.chosen && it.keyless && it.models.single().price == null })
-        val shown = usable.pickerSections("", PickerScope.All).flatMap { section -> section.models.flatMap { row -> row.variants.map { it.id } } }
+        val sections = usable.pickerSections("", PickerScope.All)
+        // Every keyless provider shares the one Local section, each row tagged with its provider.
+        assertEquals(listOf(LOCAL_SECTION), sections.map { it.title })
+        val shown = sections.single().models.flatMap { row -> row.variants.map { it.id } }
         assertEquals(listOf("qwen", "llama3", "qwen-local", "box-model", "bench", "gguf"), shown)
+        assertEquals(listOf("llamacpp", "ollama", "lmstudio", "custom:box", "my-gpu", "runtime"), sections.single().models.map { it.provider })
+        // A search inside the Local scope stays among the local models.
+        val localSearch = usable.pickerSections("qwen", PickerScope.Local).single().models
+        assertEquals(listOf("qwen", "qwen-local"), localSearch.flatMap { row -> row.variants.map { it.id } })
         assertNull(catalog.find("anthropic", "claude"))
         assertNull(catalog.find("ollama-cloud", "cloud"))
         assertNull(catalog.find("proxy", "paid"))
@@ -128,10 +135,14 @@ class ModelCatalogTest {
         assertTrue(custom.keyless && custom.chosen)
         assertEquals("Free", custom.models.first { it.id == "llama" }.price)
         val sections = usable.pickerSections("", PickerScope.All)
-        // OpenRouter's only model is free, so it has no paid section; the local models stay under Custom, including llama.
-        assertEquals(listOf("Custom", FREE_SECTION), sections.map { it.title })
+        // OpenRouter's only model is free, so it has no paid section; the local models share one Local section,
+        // including llama, which the gateway priced free.
+        assertEquals(listOf(LOCAL_SECTION, FREE_SECTION), sections.map { it.title })
         assertEquals(listOf("only-current", "llama", "qwen"), sections[0].models.flatMap { row -> row.variants.map { it.id } })
         assertEquals(listOf("vendor/free"), sections[1].models.flatMap { row -> row.variants.map { it.id } })
+        assertEquals(listOf("custom"), sections[0].models.map { it.provider })
+        // The Local chip lists the same rows alone.
+        assertEquals(sections[0].models, usable.pickerSections("", PickerScope.Local).single().models)
     }
 
     @Test
